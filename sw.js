@@ -1,6 +1,6 @@
 /* Service worker do app Cifras — deixa o app abrir 100% offline quando hospedado.
  * Estratégia: cache-first com atualização em segundo plano (stale-while-revalidate). */
-const CACHE = 'cifras-app-v4';
+const CACHE = 'cifras-app-v5';
 const ASSETS = ['./', './index.html', './sw.js'];
 
 self.addEventListener('install', e => {

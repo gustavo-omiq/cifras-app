@@ -1004,10 +1004,15 @@ function timeAgo(ts) {
 
 /* ------------------------- banco (IndexedDB) ------------------------- */
 const DB_NAME = 'cifras-db', DB_VER = 2;
-let _db = null;
+let _db = null, _dbOpening = null;
 
+/* Conexão preguiçosa: qualquer operação espera o banco abrir. O upgrade de
+ * versão fica bloqueado enquanto uma aba com a versão antiga do app estiver
+ * aberta — nesse caso avisamos e as operações ficam na fila até liberar. */
 function openDB() {
-  return new Promise((res, rej) => {
+  if (_db) return Promise.resolve(_db);
+  if (_dbOpening) return _dbOpening;
+  _dbOpening = new Promise((res, rej) => {
     const rq = indexedDB.open(DB_NAME, DB_VER);
     rq.onupgradeneeded = () => {
       const db = rq.result;
@@ -1016,30 +1021,43 @@ function openDB() {
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', { keyPath: 'slug' });
     };
-    rq.onsuccess = () => { _db = rq.result; res(_db); };
-    rq.onerror = () => rej(rq.error);
+    rq.onblocked = () => toast('Atualizando o banco de dados — feche as outras abas/janelas do app', 8000);
+    rq.onsuccess = () => {
+      _db = rq.result;
+      _dbOpening = null;
+      // se outra aba pedir upgrade no futuro, solta a conexão em vez de bloquear
+      _db.onversionchange = () => { try { _db.close(); } catch {} _db = null; };
+      res(_db);
+    };
+    rq.onerror = () => { _dbOpening = null; rej(rq.error); };
   });
+  return _dbOpening;
 }
-function tx(store, mode, fn) {
+async function tx(store, mode, fn) {
+  const db = await openDB();
   return new Promise((res, rej) => {
-    const t = _db.transaction(store, mode);
+    const t = db.transaction(store, mode);
     const s = t.objectStore(store);
     const out = fn(s);
     t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
     t.onerror = () => rej(t.error);
   });
 }
-const dbAll = store => new Promise((res, rej) => {
-  const rq = _db.transaction(store).objectStore(store).getAll();
-  rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
-});
+const dbAll = async store => {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const rq = db.transaction(store).objectStore(store).getAll();
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  });
+};
 const dbPut = (store, obj) => tx(store, 'readwrite', s => s.put(obj));
 const dbDel = (store, id) => tx(store, 'readwrite', s => s.delete(id));
 const dbClear = store => tx(store, 'readwrite', s => s.clear());
 
 async function getSetting(key, def) {
+  const db = await openDB();
   const v = await new Promise((res, rej) => {
-    const rq = _db.transaction('settings').objectStore('settings').get(key);
+    const rq = db.transaction('settings').objectStore('settings').get(key);
     rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
   });
   return v ? v.value : def;
