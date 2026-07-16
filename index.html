@@ -499,6 +499,61 @@ input:focus, textarea:focus {
 .checkrow input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
 .checkrow .done { color: var(--ok); font-size: 12.5px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
+/* ---------- Tela da playlist ---------- */
+#plscreen {
+  position: fixed; inset: 0; z-index: 55; background: var(--bg);
+  display: none; flex-direction: column;
+}
+#plscreen.open { display: flex; animation: viewerIn .25s var(--ease); }
+#plshead {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: calc(6px + var(--safe-top)) 10px 10px;
+}
+#plshead .l1 { display: flex; align-items: center; gap: 6px; }
+#plshead .titles { flex: 1; min-width: 0; padding: 0 2px; }
+#plshead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#plshead .va { font-size: 13px; color: var(--muted); }
+.plsbar {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  padding: 0 4px; flex-wrap: wrap;
+}
+.plsbar .chips { margin: 0; }
+.viewtoggle {
+  display: flex; gap: 2px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 10px; padding: 2px;
+  margin-left: auto;
+}
+.viewtoggle button {
+  min-width: 38px; min-height: 32px; border-radius: 8px; color: var(--muted);
+  display: grid; place-items: center;
+  transition: background .15s, color .15s;
+}
+.viewtoggle button.on { background: var(--accent); color: var(--accent-ink); }
+#plsscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+.plcards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 700px) { .plcards { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1000px) { .plcards { grid-template-columns: repeat(4, 1fr); } }
+.songcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; cursor: pointer;
+  transition: border-color .2s, transform .12s var(--ease);
+}
+@media (hover: hover) { .songcard:hover { border-color: var(--accent); } }
+.songcard:active { transform: scale(.97); }
+.songcard .ava {
+  width: 42px; height: 42px; border-radius: 10px; overflow: hidden;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; margin-bottom: 10px;
+}
+.songcard .ava img { width: 100%; height: 100%; object-fit: cover; }
+.songcard h4 {
+  font-size: 15px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.songcard .art { color: var(--muted); font-size: 12.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.songcard .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 6px; }
+.songcard .pnote { margin-top: 8px; }
+
 /* ---------- Visualizador ---------- */
 #viewer {
   position: fixed; inset: 0; z-index: 60; background: var(--bg);
@@ -964,22 +1019,54 @@ html, body { overflow-x: hidden; max-width: 100%; }
   </div>
 </div>
 
-<div class="modal-bg" id="modalPlDetail">
-  <div class="modal">
-    <h3 id="plDetailName" style="margin-bottom:2px"></h3>
-    <p class="muted" id="plDetailCount" style="margin-bottom:12px"></p>
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn sm" id="plDetailPlay">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-        Tocar
+<!-- ================= TELA DA PLAYLIST ================= -->
+<div id="plscreen">
+  <div id="plshead">
+    <div class="l1">
+      <button class="iconbtn" id="plsBack" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
       </button>
+      <div class="titles">
+        <div class="vt" id="plDetailName"></div>
+        <div class="va" id="plDetailCount"></div>
+      </div>
+      <button class="iconbtn playbtn" id="plDetailPlay" title="Tocar a playlist" aria-label="Tocar a playlist">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+      </button>
+      <button class="iconbtn" id="plsMenuBtn" title="Opções da playlist" aria-label="Opções da playlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+    </div>
+    <div class="plsbar">
+      <div class="chips" id="plsSortChips">
+        <button class="chip active" data-sort="manual">Ordem</button>
+        <button class="chip" data-sort="title">Título</button>
+        <button class="chip" data-sort="artist">Artista</button>
+      </div>
+      <div class="viewtoggle">
+        <button id="plsViewList" title="Ver como lista" aria-label="Ver como lista">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+        </button>
+        <button id="plsViewCards" title="Ver como cards" aria-label="Ver como cards">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="plsscroll"><div id="plDetailSongs"></div></div>
+</div>
+
+<div class="modal-bg" id="modalPlMenu">
+  <div class="modal" style="max-width:420px">
+    <h3>Opções da playlist</h3>
+    <div class="row">
       <button class="btn sm ghost" id="plDetailRen">Renomear</button>
       <button class="btn sm ghost" id="plDetailExport">Exportar</button>
       <button class="btn sm danger" id="plDetailDel">Excluir</button>
-      <div style="flex:1"></div>
-      <button class="btn sm subtle" id="plDetailClose">Fechar</button>
     </div>
-    <div class="songlist" id="plDetailSongs"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="plMenuClose">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -1926,6 +2013,7 @@ function closeViewer() {
   $('#viewer').classList.remove('open', 'stage');
   vSongId = null; vContext = null;
   rerenderLists();
+  if (plDetailId) renderPlScreen(); // voltar do viewer cai na tela da playlist
 }
 
 /* mantém a tela acesa enquanto uma cifra está aberta (iPad no pedestal) */
@@ -1970,11 +2058,12 @@ function renderViewer() {
   const nav = $('#vnav');
   if (vContext) {
     const pl = PLAYLISTS.find(p => p.id === vContext.playlistId);
+    const ids = vContext.ids || pl?.songIds || [];
     if (pl) {
       nav.style.display = '';
-      $('#vPos').textContent = `${vContext.index + 1} / ${pl.songIds.length} — ${pl.name}`;
+      $('#vPos').textContent = `${vContext.index + 1} / ${ids.length} — ${pl.name}`;
       $('#vPrev').disabled = vContext.index === 0;
-      $('#vNext').disabled = vContext.index >= pl.songIds.length - 1;
+      $('#vNext').disabled = vContext.index >= ids.length - 1;
     } else nav.style.display = 'none';
   } else nav.style.display = 'none';
 }
@@ -2062,9 +2151,10 @@ $('#vNext').addEventListener('click', () => stepPlaylist(1));
 function stepPlaylist(d) {
   if (!vContext) return;
   const pl = PLAYLISTS.find(p => p.id === vContext.playlistId); if (!pl) return;
+  const ids = vContext.ids || pl.songIds; // segue a ordem exibida na tela da playlist
   const ni = vContext.index + d;
-  if (ni < 0 || ni >= pl.songIds.length) return;
-  openViewer(pl.songIds[ni], { playlistId: pl.id, index: ni });
+  if (ni < 0 || ni >= ids.length) return;
+  openViewer(ids[ni], { playlistId: pl.id, ids, index: ni });
 }
 $('#vDelete').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
@@ -2260,7 +2350,7 @@ function renderPlaylists() {
         <span class="label-caps">Atualizada ${timeAgo(pl.updatedAt || pl.createdAt) || 'agora'}</span>
         <span class="rowic" style="color:var(--muted)">${svg(I.chevron, 17)}</span>
       </div>`;
-    card.addEventListener('click', () => openPlaylistSheet(pl.id));
+    card.addEventListener('click', () => openPlaylistScreen(pl.id));
     wrap.appendChild(card);
   }
   // card pontilhado: nova playlist
@@ -2272,68 +2362,126 @@ function renderPlaylists() {
   wrap.appendChild(add);
 }
 
-/* folha de detalhes da playlist (tocar, renomear, excluir, ordenar) */
+/* tela da playlist: músicas como cards ou lista, ordenadas pela ordem
+ * manual da playlist, por título ou por artista (preferências persistem) */
 let plDetailId = null;
-function openPlaylistSheet(id) {
+let plsView = 'list';   // 'list' | 'cards'
+let plsSort = 'manual'; // 'manual' | 'title' | 'artist'
+
+function openPlaylistScreen(id) {
   plDetailId = id;
-  renderPlaylistSheet();
-  $('#modalPlDetail').classList.add('open');
+  renderPlScreen();
+  $('#plscreen').classList.add('open');
+  $('#plsscroll').scrollTop = 0;
 }
-function renderPlaylistSheet() {
+function closePlaylistScreen() {
+  $('#plscreen').classList.remove('open');
+  $('#modalPlMenu').classList.remove('open');
+  plDetailId = null;
+  renderPlaylists();
+}
+function plsSortedIds(pl) {
+  if (plsSort === 'manual') return [...pl.songIds];
+  const by = plsSort === 'title'
+    ? (a, b) => norm(a.title).localeCompare(norm(b.title))
+    : (a, b) => norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title));
+  return pl.songIds
+    .map(id => SONGS.find(s => s.id === id))
+    .filter(Boolean)
+    .sort(by)
+    .map(s => s.id);
+}
+function openFromPls(pl, ids, i) {
+  openViewer(ids[i], { playlistId: pl.id, ids, index: i });
+}
+function renderPlScreen() {
   const pl = PLAYLISTS.find(p => p.id === plDetailId);
-  if (!pl) { $('#modalPlDetail').classList.remove('open'); return; }
+  if (!pl) return closePlaylistScreen();
   $('#plDetailName').textContent = pl.name;
   $('#plDetailCount').textContent = `${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}`;
   $('#plDetailPlay').disabled = !pl.songIds.length;
-  const list = $('#plDetailSongs');
-  list.innerHTML = pl.songIds.length ? '' : '<p class="muted">Nenhuma música ainda — abra uma cifra e use o botão “+” para adicionar.</p>';
-  pl.songIds.forEach((sid, i) => {
+  $$('#plsSortChips .chip').forEach(c => c.classList.toggle('active', c.dataset.sort === plsSort));
+  $('#plsViewList').classList.toggle('on', plsView === 'list');
+  $('#plsViewCards').classList.toggle('on', plsView === 'cards');
+  const ids = plsSortedIds(pl);
+  const box = $('#plDetailSongs');
+  box.className = plsView === 'cards' ? 'plcards' : 'songlist';
+  box.innerHTML = ids.length ? '' : '<p class="muted">Nenhuma música ainda — abra uma cifra e adicione pela engrenagem → Playlist.</p>';
+  ids.forEach((sid, i) => {
     const s = SONGS.find(x => x.id === sid);
     if (!s) return;
-    const note = pl.notes?.[sid] || '';
-    const item = document.createElement('div');
-    item.className = 'songitem plitem';
-    item.innerHTML = `<div class="ordbtns">
-        <button data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">${svg(I.up, 15)}</button>
-        <button data-mv="1" ${i === pl.songIds.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">${svg(I.down, 15)}</button>
-      </div>
-      ${avatarHtml(s.artistSlug)}
-      <div class="info">
-        <div class="t">${escHtml(s.title)}</div>
-        <div class="a">${escHtml(s.artist)}</div>
-        ${note ? `<span class="pnote">${escHtml(note)}</span>` : ''}
-      </div>
-      <span class="pill">${escHtml(currentKey(s))}</span>
-      <button class="iconbtn" data-note="1" style="width:36px;height:36px${note ? ';color:var(--accent)' : ''}" title="Nota (capo, tom, deixa…)" aria-label="Nota da música nesta playlist">${svg(I.pencil, 15)}</button>
-      <button class="iconbtn" data-rm="1" style="color:var(--danger);width:36px;height:36px" aria-label="Remover da playlist">${svg(I.x, 16)}</button>`;
-    item.addEventListener('click', async e => {
-      const mv = e.target.closest('[data-mv]');
-      const rm = e.target.closest('[data-rm]');
-      const nt = e.target.closest('[data-note]');
-      if (mv) { movePlSong(pl, i, +mv.dataset.mv); e.stopPropagation(); return; }
-      if (rm) { removePlSong(pl, i); e.stopPropagation(); return; }
-      if (nt) {
-        e.stopPropagation();
-        const v = prompt(`Nota para "${s.title}" nesta playlist (capo, tom, deixa…):`, note);
-        if (v === null) return;
-        pl.notes = pl.notes || {};
-        if (v.trim()) pl.notes[sid] = v.trim(); else delete pl.notes[sid];
-        await plPut(pl); await reloadCache();
-        renderPlaylistSheet();
-        return;
-      }
-      $('#modalPlDetail').classList.remove('open');
-      openViewer(sid, { playlistId: pl.id, index: i });
-    });
-    list.appendChild(item);
+    box.appendChild(plsView === 'cards' ? plsCard(pl, s, ids, i) : plsRow(pl, s, ids, i));
   });
 }
-$('#plDetailClose').addEventListener('click', () => $('#modalPlDetail').classList.remove('open'));
+function plsCard(pl, s, ids, i) {
+  const note = pl.notes?.[s.id] || '';
+  const el = document.createElement('div');
+  el.className = 'songcard';
+  el.innerHTML = `${avatarHtml(s.artistSlug)}
+    <h4>${escHtml(s.title)}</h4>
+    <div class="art">${escHtml(s.artist)}</div>
+    ${note ? `<span class="pnote">${escHtml(note)}</span>` : ''}
+    <div class="foot">
+      <span class="pill">${escHtml(currentKey(s))}</span>
+      ${s.favorite ? `<span class="fav">${svg(I.heartFill, 14)}</span>` : ''}
+    </div>`;
+  el.addEventListener('click', () => openFromPls(pl, ids, i));
+  return el;
+}
+function plsRow(pl, s, ids, i) {
+  const note = pl.notes?.[s.id] || '';
+  const manual = plsSort === 'manual';
+  const item = document.createElement('div');
+  item.className = 'songitem plitem';
+  item.innerHTML = `${manual ? `<div class="ordbtns">
+      <button data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">${svg(I.up, 15)}</button>
+      <button data-mv="1" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">${svg(I.down, 15)}</button>
+    </div>` : ''}
+    ${avatarHtml(s.artistSlug)}
+    <div class="info">
+      <div class="t">${escHtml(s.title)}</div>
+      <div class="a">${escHtml(s.artist)}</div>
+      ${note ? `<span class="pnote">${escHtml(note)}</span>` : ''}
+    </div>
+    <span class="pill">${escHtml(currentKey(s))}</span>
+    <button class="iconbtn" data-note="1" style="width:36px;height:36px${note ? ';color:var(--accent)' : ''}" title="Nota (capo, tom, deixa…)" aria-label="Nota da música nesta playlist">${svg(I.pencil, 15)}</button>
+    <button class="iconbtn" data-rm="1" style="color:var(--danger);width:36px;height:36px" aria-label="Remover da playlist">${svg(I.x, 16)}</button>`;
+  item.addEventListener('click', async e => {
+    const mv = e.target.closest('[data-mv]');
+    const rm = e.target.closest('[data-rm]');
+    const nt = e.target.closest('[data-note]');
+    if (mv) { movePlSong(pl, pl.songIds.indexOf(s.id), +mv.dataset.mv); e.stopPropagation(); return; }
+    if (rm) { removePlSong(pl, pl.songIds.indexOf(s.id)); e.stopPropagation(); return; }
+    if (nt) {
+      e.stopPropagation();
+      const v = prompt(`Nota para "${s.title}" nesta playlist (capo, tom, deixa…):`, note);
+      if (v === null) return;
+      pl.notes = pl.notes || {};
+      if (v.trim()) pl.notes[s.id] = v.trim(); else delete pl.notes[s.id];
+      await plPut(pl); await reloadCache();
+      renderPlScreen();
+      return;
+    }
+    openFromPls(pl, ids, i);
+  });
+  return item;
+}
+$('#plsBack').addEventListener('click', closePlaylistScreen);
+$('#plsSortChips').addEventListener('click', async e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  plsSort = c.dataset.sort;
+  await setSetting('plsSort', plsSort);
+  renderPlScreen();
+});
+$('#plsViewList').addEventListener('click', async () => { plsView = 'list'; await setSetting('plsView', plsView); renderPlScreen(); });
+$('#plsViewCards').addEventListener('click', async () => { plsView = 'cards'; await setSetting('plsView', plsView); renderPlScreen(); });
+$('#plsMenuBtn').addEventListener('click', () => $('#modalPlMenu').classList.add('open'));
+$('#plMenuClose').addEventListener('click', () => $('#modalPlMenu').classList.remove('open'));
 $('#plDetailPlay').addEventListener('click', () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId);
   if (!pl || !pl.songIds.length) return;
-  $('#modalPlDetail').classList.remove('open');
-  openViewer(pl.songIds[0], { playlistId: pl.id, index: 0 });
+  const ids = plsSortedIds(pl);
+  openFromPls(pl, ids, 0);
 });
 $('#plDetailRen').addEventListener('click', async () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
@@ -2341,7 +2489,8 @@ $('#plDetailRen').addEventListener('click', async () => {
   if (name?.trim()) {
     pl.name = name.trim();
     await plPut(pl); await reloadCache();
-    renderPlaylistSheet(); renderPlaylists();
+    $('#modalPlMenu').classList.remove('open');
+    renderPlScreen();
   }
 });
 /* exporta a playlist com as próprias cifras — mesmo formato do backup,
@@ -2356,6 +2505,7 @@ $('#plDetailExport').addEventListener('click', () => {
   a.download = `playlist-${pl.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
+  $('#modalPlMenu').classList.remove('open');
   toast('Playlist exportada — envie o arquivo para quem quiser importar');
 });
 $('#plDetailDel').addEventListener('click', async () => {
@@ -2363,8 +2513,7 @@ $('#plDetailDel').addEventListener('click', async () => {
   if (!confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) return;
   await addTombstone(pl.id);
   await dbDel('playlists', pl.id); await reloadCache();
-  $('#modalPlDetail').classList.remove('open');
-  renderPlaylists();
+  closePlaylistScreen();
 });
 async function movePlSong(pl, i, d) {
   const j = i + d;
@@ -2372,13 +2521,13 @@ async function movePlSong(pl, i, d) {
   [pl.songIds[i], pl.songIds[j]] = [pl.songIds[j], pl.songIds[i]];
   await plPut(pl);
   await reloadCache();
-  renderPlaylistSheet();
+  renderPlScreen();
 }
 async function removePlSong(pl, i) {
   pl.songIds.splice(i, 1);
   await plPut(pl);
   await reloadCache();
-  renderPlaylistSheet();
+  renderPlScreen();
 }
 /* adicionar à playlist (do visualizador) */
 $('#vAddPl').addEventListener('click', () => {
@@ -3011,6 +3160,8 @@ window.addEventListener('offline', updateNet);
   RECENTS = await getSetting('recentSearches', []);
   SYNC = Object.assign(SYNC, await getSetting('sync', {}));
   TOMBS = await getSetting('tombstones', {});
+  plsView = await getSetting('plsView', 'list');
+  plsSort = await getSetting('plsSort', 'manual');
   applyTheme();
   renderThemeChips();
   await loadProxies();
