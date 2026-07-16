@@ -523,16 +523,6 @@ input:focus, textarea:focus {
 @media (hover: hover) {
   .iconbtn:hover { background: var(--surface2); color: var(--text); }
 }
-#vtools {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 4px 2px;
-  overflow-x: auto; scrollbar-width: none;
-}
-#vtools::-webkit-scrollbar { display: none; }
-/* em telas estreitas as ferramentas quebram em linhas — nada fica cortado */
-@media (max-width: 700px) {
-  #vtools { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
-}
 .toolgroup {
   display: flex; align-items: center; gap: 2px;
   background: var(--surface2); border: 1px solid var(--border);
@@ -556,10 +546,11 @@ input:focus, textarea:focus {
 #vpre b.ch:active { background: var(--accent-soft); }
 
 /* ---------- Rolagem automática ---------- */
-.toolgroup button.on { background: var(--accent); color: var(--accent-ink); }
+#vScrollPlay { width: 38px; height: 38px; border: 1px solid var(--border); background: var(--surface2); margin-right: 2px; }
+#vScrollPlay.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
-/* ---------- Modo palco ---------- */
-#viewer.stage #vtools, #viewer.stage #vnav { display: none; }
+/* ---------- Modo palco (barra compacta continua visível: play e ajustes à mão) ---------- */
+#viewer.stage #vnav { display: none; }
 #viewer.stage #vhead { padding-bottom: 6px; }
 #viewer.stage #vpre { font-weight: 500; }
 #viewer.stage #vpre b.ch { text-shadow: 0 0 1px currentColor; }
@@ -910,45 +901,12 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <div class="va" id="vArtist"></div>
         <div class="vn" id="vNote"></div>
       </div>
-      <button class="iconbtn" id="vFav" title="Favorita" aria-label="Marcar como favorita">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="vFavPath" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      <button class="iconbtn playbtn" id="vScrollPlay" title="Rolagem automática" aria-label="Ligar ou pausar rolagem automática">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
       </button>
-      <button class="iconbtn" id="vAddPl" title="Adicionar à playlist" aria-label="Adicionar à playlist">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      <button class="iconbtn" id="vToolsBtn" title="Ajustes da cifra" aria-label="Ajustes da cifra">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
-      <button class="iconbtn" id="vEdit" title="Editar" aria-label="Editar cifra">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-      </button>
-      <button class="iconbtn" id="vDelete" title="Excluir" aria-label="Excluir cifra">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-      </button>
-    </div>
-    <div id="vtools">
-      <div class="toolgroup" title="Tom">
-        <button id="vTransDown" aria-label="Transpor meio tom abaixo">♭</button>
-        <span class="val" id="vKey">—</span>
-        <button id="vTransUp" aria-label="Transpor meio tom acima">♯</button>
-        <button id="vTransReset" title="Tom original" aria-label="Voltar ao tom original">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        </button>
-      </div>
-      <div class="toolgroup" title="Fonte">
-        <button id="vFontDown" style="font-size:13px" aria-label="Diminuir fonte">A−</button>
-        <span class="val" id="vFontVal"></span>
-        <button id="vFontUp" aria-label="Aumentar fonte">A+</button>
-      </div>
-      <div class="toolgroup" title="Rolagem automática">
-        <button id="vScrollPlay" aria-label="Rolagem automática">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-        </button>
-        <button id="vScrollDown" style="font-size:13px" aria-label="Rolar mais devagar">−</button>
-        <span class="val" id="vScrollVal"></span>
-        <button id="vScrollUp" style="font-size:13px" aria-label="Rolar mais rápido">+</button>
-      </div>
-      <button class="iconbtn" id="vStage" title="Modo palco" aria-label="Modo palco" style="flex-shrink:0">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-      </button>
-      <span class="pill acc" id="vCapo" style="flex-shrink:0;display:none"></span>
     </div>
   </div>
   <div id="vscroll"><div id="vpre"></div></div>
@@ -1022,6 +980,53 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <button class="btn sm subtle" id="plDetailClose">Fechar</button>
     </div>
     <div class="songlist" id="plDetailSongs"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalTools">
+  <div class="modal" style="max-width:440px">
+    <h3>Ajustes da cifra</h3>
+    <div class="row">
+      <button class="btn sm subtle" id="vFav">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="vFavPath" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        <span id="vFavLabel">Favoritar</span>
+      </button>
+      <button class="btn sm subtle" id="vAddPl">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Playlist
+      </button>
+      <button class="btn sm subtle" id="vEdit">Editar</button>
+      <button class="btn sm danger" id="vDelete">Excluir</button>
+    </div>
+    <label>Tom <span class="muted" id="vCapo" style="text-transform:none;letter-spacing:0;margin-left:6px"></span></label>
+    <div class="toolgroup" style="width:max-content">
+      <button id="vTransDown" aria-label="Transpor meio tom abaixo">♭</button>
+      <span class="val" id="vKey">—</span>
+      <button id="vTransUp" aria-label="Transpor meio tom acima">♯</button>
+      <button id="vTransReset" title="Tom original" aria-label="Voltar ao tom original">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+    </div>
+    <label>Tamanho da fonte</label>
+    <div class="toolgroup" style="width:max-content">
+      <button id="vFontDown" style="font-size:13px" aria-label="Diminuir fonte">A−</button>
+      <span class="val" id="vFontVal"></span>
+      <button id="vFontUp" aria-label="Aumentar fonte">A+</button>
+    </div>
+    <label>Velocidade da rolagem automática</label>
+    <div class="toolgroup" style="width:max-content">
+      <button id="vScrollDown" aria-label="Rolar mais devagar">−</button>
+      <span class="val" id="vScrollVal"></span>
+      <button id="vScrollUp" aria-label="Rolar mais rápido">+</button>
+    </div>
+    <label>Tela</label>
+    <button class="btn subtle sm" id="vStage">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      <span id="vStageLabel">Entrar no modo palco</span>
+    </button>
+    <div class="row" style="margin-top:18px">
+      <button class="btn ghost" id="vToolsClose">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -1914,6 +1919,7 @@ function openViewer(songId, context) {
 function closeViewer() {
   stopAutoScroll();
   releaseWakeLock();
+  $('#modalTools').classList.remove('open');
   $('#viewer').classList.remove('open', 'stage');
   vSongId = null; vContext = null;
   rerenderLists();
@@ -1938,14 +1944,15 @@ function renderViewer() {
   $('#vTitle').textContent = s.title;
   $('#vArtist').textContent = s.artist;
   const n = s.transpose || 0;
-  $('#vKey').textContent = currentKey(s) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '');
-  const capoEl = $('#vCapo');
-  capoEl.textContent = s.capo || '';
-  capoEl.style.display = s.capo ? '' : 'none';
+  const keyLabel = currentKey(s) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '');
+  $('#vKey').textContent = keyLabel;
+  $('#vStageLabel').textContent = $('#viewer').classList.contains('stage') ? 'Sair do modo palco' : 'Entrar no modo palco';
+  $('#vCapo').textContent = s.capo ? `· ${s.capo}` : '';
   $('#vFontVal').textContent = fontSize + 'px';
   $('#vScrollVal').textContent = scrollSpeed + '%';
   $('#vFav').classList.toggle('faved', !!s.favorite);
   $('#vFavPath').setAttribute('fill', s.favorite ? 'currentColor' : 'none');
+  $('#vFavLabel').textContent = s.favorite ? 'Favorita' : 'Favoritar';
   // nota da música nesta playlist (ex.: "capo na 2ª", "começa no refrão")
   const noteEl = $('#vNote');
   const pl0 = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
@@ -1999,10 +2006,14 @@ $('#vFav').addEventListener('click', async () => {
 
 /* modo palco: tela cheia de cifra, 2 colunas no iPad em paisagem */
 $('#vStage').addEventListener('click', () => {
-  const on = $('#viewer').classList.toggle('stage');
+  $('#viewer').classList.toggle('stage');
+  $('#modalTools').classList.remove('open');
   renderViewer(); // colunas disponíveis mudam (2 colunas em paisagem)
-  if (on) toast('Modo palco — toque no ícone de volta para sair', 2200);
 });
+
+/* folha de ajustes da cifra (ações, tom, fonte, rolagem, palco) */
+$('#vToolsBtn').addEventListener('click', () => $('#modalTools').classList.add('open'));
+$('#vToolsClose').addEventListener('click', () => $('#modalTools').classList.remove('open'));
 
 /* rolagem automática (velocidade em % — 100% ≈ 30 px/s) */
 let scrollSpeed = 100, scrollRAF = null, scrollLastTs = 0, scrollAcc = 0;
@@ -2075,6 +2086,7 @@ $('#vEdit').addEventListener('click', () => {
   $('#eArtist').value = s.artist;
   $('#eKey').value = s.originalKey;
   $('#eContent').value = s.content.replace(TOKEN_RE, '<$1>');
+  $('#modalTools').classList.remove('open');
   $('#modalEdit').classList.add('open');
 });
 $('#eCancel').addEventListener('click', () => $('#modalEdit').classList.remove('open'));
@@ -2384,6 +2396,7 @@ $('#vAddPl').addEventListener('click', () => {
     });
     wrap.appendChild(b);
   }
+  $('#modalTools').classList.remove('open');
   $('#modalPl').classList.add('open');
 });
 $('#plPickClose').addEventListener('click', () => $('#modalPl').classList.remove('open'));
