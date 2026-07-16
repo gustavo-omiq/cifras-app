@@ -7,31 +7,37 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cifras">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#f7f9fb">
 <title>Cifras — Guitarra &amp; Violão</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎸</text></svg>">
 <style>
-/* ============ Tokens de design (tema claro) ============ */
+/* ============ Tokens de design — layout "CifraPad" (Stitch) ============ */
+/* Tema claro: índigo sobre superfícies frias (mapeado do design system M3 do mock) */
 :root {
-  --bg: #f6f4ee;
+  --bg: #f7f9fb;
   --surface: #ffffff;
-  --surface2: #f1eee4;
-  --text: #211d16;
-  --muted: #7d7665;
-  --accent: #b04e16;
+  --surface2: #f2f4f6;
+  --surface3: #eceef0;
+  --text: #191c1e;
+  --muted: #5d5b6b;
+  --faint: #777587;
+  --accent: #3525cd;
+  --accent-hi: #4b4dd8;
   --accent-ink: #ffffff;
-  --accent-soft: #f7e8db;
-  --border: #e6e1d3;
-  --chord: #b04e16;
-  --mark: #ffe9a8;
-  --danger: #b3372c;
-  --danger-bg: #b3372c;
+  --accent-soft: #e2dfff;
+  --border: #e0dfec;
+  --chord: #3525cd;
+  --mark: #dad7ff;
+  --pill-bg: #dae2fd;
+  --pill-ink: #3f465c;
+  --danger: #ba1a1a;
+  --danger-bg: #ba1a1a;
   --danger-ink: #ffffff;
-  --ok: #3a7d44;
-  --scrim: rgba(30, 25, 18, .5);
-  --shadow: 0 10px 30px rgba(60, 50, 30, .14);
-  --radius: 12px;
-  --radius-sm: 9px;
+  --ok: #2e7d32;
+  --scrim: rgba(18, 19, 32, .5);
+  --shadow: 0 10px 30px rgba(53, 37, 205, .10);
+  --radius: 14px;
+  --radius-sm: 10px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -41,21 +47,26 @@
 }
 /* ============ Tema escuro (manual) ============ */
 :root[data-theme="dark"] {
-  --bg: #100f0d;
-  --surface: #1a1815;
-  --surface2: #232019;
-  --text: #f3efe6;
-  --muted: #a29a88;
-  --accent: #f2a950;
-  --accent-ink: #241503;
-  --accent-soft: rgba(242, 169, 80, .15);
-  --border: #2d2a23;
-  --chord: #ffb763;
-  --mark: rgba(242, 169, 80, .32);
-  --danger: #e66a5a;
-  --danger-bg: #b03a2e;
-  --danger-ink: #ffffff;
-  --ok: #71c380;
+  --bg: #111218;
+  --surface: #1a1b23;
+  --surface2: #22232d;
+  --surface3: #2a2b36;
+  --text: #e4e1ec;
+  --muted: #a09eb1;
+  --faint: #8b899c;
+  --accent: #c3c0ff;
+  --accent-hi: #a5a0ff;
+  --accent-ink: #191670;
+  --accent-soft: rgba(195, 192, 255, .16);
+  --border: #2f303c;
+  --chord: #c3c0ff;
+  --mark: rgba(195, 192, 255, .30);
+  --pill-bg: #3f465c;
+  --pill-ink: #dae2fd;
+  --danger: #ffb4ab;
+  --danger-bg: #93000a;
+  --danger-ink: #ffdad6;
+  --ok: #7ad48a;
   --scrim: rgba(0, 0, 0, .6);
   --shadow: 0 8px 24px rgba(0, 0, 0, .5);
   color-scheme: dark;
@@ -63,21 +74,26 @@
 /* ============ Tema escuro (automático, segue o sistema) ============ */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #100f0d;
-    --surface: #1a1815;
-    --surface2: #232019;
-    --text: #f3efe6;
-    --muted: #a29a88;
-    --accent: #f2a950;
-    --accent-ink: #241503;
-    --accent-soft: rgba(242, 169, 80, .15);
-    --border: #2d2a23;
-    --chord: #ffb763;
-    --mark: rgba(242, 169, 80, .32);
-    --danger: #e66a5a;
-    --danger-bg: #b03a2e;
-    --danger-ink: #ffffff;
-    --ok: #71c380;
+    --bg: #111218;
+    --surface: #1a1b23;
+    --surface2: #22232d;
+    --surface3: #2a2b36;
+    --text: #e4e1ec;
+    --muted: #a09eb1;
+    --faint: #8b899c;
+    --accent: #c3c0ff;
+    --accent-hi: #a5a0ff;
+    --accent-ink: #191670;
+    --accent-soft: rgba(195, 192, 255, .16);
+    --border: #2f303c;
+    --chord: #c3c0ff;
+    --mark: rgba(195, 192, 255, .30);
+    --pill-bg: #3f465c;
+    --pill-ink: #dae2fd;
+    --danger: #ffb4ab;
+    --danger-bg: #93000a;
+    --danger-ink: #ffdad6;
+    --ok: #7ad48a;
     --scrim: rgba(0, 0, 0, .6);
     --shadow: 0 8px 24px rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -99,6 +115,7 @@ a { color: var(--accent); }
 ::selection { background: var(--accent-soft); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 svg { flex-shrink: 0; }
+img { max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -108,20 +125,39 @@ svg { flex-shrink: 0; }
   }
 }
 
+/* ---------- Tipografia do design system ---------- */
+.display {
+  font-size: clamp(30px, 5vw, 44px);
+  font-weight: 800; letter-spacing: -.025em; line-height: 1.12;
+}
+.lead { font-size: 16.5px; color: var(--muted); margin-top: 4px; }
+.label-caps {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--faint);
+}
+.h2 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.sectionhead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin: 26px 0 14px; gap: 10px;
+}
+.sectionhead .linklike {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent); padding: 4px 2px;
+}
+.sectionhead .linklike:active { opacity: .6; }
+
 /* ---------- Shell ---------- */
 #topbar {
   position: sticky; top: 0; z-index: 40;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: calc(8px + var(--safe-top)) 16px 8px;
-  display: flex; align-items: center; gap: 10px; min-height: 54px;
+  padding: calc(8px + var(--safe-top)) 18px 8px;
+  display: flex; align-items: center; gap: 10px; min-height: 56px;
 }
-#topbar .logo {
-  width: 32px; height: 32px; border-radius: 9px;
-  display: grid; place-items: center;
-  background: var(--accent); color: var(--accent-ink);
+#topbar .brand {
+  font-size: 20px; font-weight: 800; letter-spacing: .02em;
+  color: var(--accent);
 }
-#topbar h1 { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 #topbar .spacer { flex: 1; }
 #netBadge {
   font-size: 12px; padding: 4px 11px; border-radius: 99px;
@@ -133,28 +169,45 @@ svg { flex-shrink: 0; }
 #netBadge.off { background: var(--surface2); color: var(--muted); }
 #netBadge.off::before { background: var(--muted); }
 
-main { padding: 16px 16px calc(78px + var(--safe-bottom)); max-width: 860px; margin: 0 auto; }
+main { padding: 22px 18px calc(96px + var(--safe-bottom)); max-width: 1024px; margin: 0 auto; }
 
 #tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-  display: flex; background: var(--surface);
+  display: flex;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
   padding-bottom: var(--safe-bottom);
 }
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  #tabbar { background: var(--surface); }
+}
 #tabbar button {
-  flex: 1; padding: 8px 4px 10px; font-size: 11.5px; font-weight: 500;
-  color: var(--muted); min-height: 56px;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex: 1; padding: 10px 4px 12px; font-size: 11px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); min-height: 62px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  position: relative;
   transition: color .2s var(--ease);
 }
-#tabbar button .ico {
-  display: grid; place-items: center;
-  width: 54px; height: 28px; border-radius: 99px;
-  transition: background .25s var(--ease), transform .15s var(--ease);
+#tabbar button:active svg { transform: scale(.88); }
+#tabbar button svg { transition: transform .15s var(--ease); }
+#tabbar button.active { color: var(--accent); }
+#tabbar button.active::after {
+  content: ''; position: absolute; bottom: 6px;
+  width: 4px; height: 4px; border-radius: 99px; background: var(--accent);
 }
-#tabbar button:active .ico { transform: scale(.9); }
-#tabbar button.active { color: var(--accent); font-weight: 600; }
-#tabbar button.active .ico { background: var(--accent-soft); }
+
+#fab {
+  position: fixed; right: 20px; bottom: calc(84px + var(--safe-bottom)); z-index: 45;
+  width: 58px; height: 58px; border-radius: 99px;
+  background: var(--accent); color: var(--accent-ink);
+  display: none; place-items: center;
+  box-shadow: 0 10px 26px rgba(53, 37, 205, .35);
+  transition: transform .15s var(--ease), background .2s;
+}
+#fab.show { display: grid; }
+#fab:active { transform: scale(.92); background: var(--accent-hi); }
 
 .view { display: none; }
 .view.active { display: block; animation: viewIn .22s var(--ease); }
@@ -163,15 +216,15 @@ main { padding: 16px 16px calc(78px + var(--safe-bottom)); max-width: 860px; mar
 /* ---------- Comuns ---------- */
 .card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+  border-radius: var(--radius); padding: 18px; margin-bottom: 14px;
 }
-.card h2 { font-size: 15px; font-weight: 650; margin-bottom: 10px; letter-spacing: -.01em; }
+.card h2 { font-size: 15px; font-weight: 700; margin-bottom: 10px; letter-spacing: -.01em; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   background: var(--accent); color: var(--accent-ink);
-  border-radius: 10px; padding: 10px 18px; min-height: 42px;
-  font-weight: 600; font-size: 14.5px;
+  border-radius: 11px; padding: 10px 18px; min-height: 44px;
+  font-weight: 700; font-size: 14px; letter-spacing: .02em;
   transition: transform .12s var(--ease), opacity .2s, background .2s;
 }
 .btn:active { transform: scale(.97); }
@@ -179,10 +232,10 @@ main { padding: 16px 16px calc(78px + var(--safe-bottom)); max-width: 860px; mar
 .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 .btn.subtle { background: var(--accent-soft); color: var(--accent); }
 .btn.danger { background: var(--danger-bg); color: var(--danger-ink); }
-.btn.sm { padding: 6px 12px; min-height: 34px; font-size: 13.5px; border-radius: 9px; }
+.btn.sm { padding: 6px 12px; min-height: 36px; font-size: 13px; border-radius: 9px; }
 input[type=text], input[type=search], textarea {
-  width: 100%; padding: 11px 13px; border: 1px solid var(--border);
-  border-radius: 10px; background: var(--surface); font-size: 16px;
+  width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: 11px; background: var(--surface); font-size: 16px;
   transition: border-color .2s, box-shadow .2s;
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
@@ -192,51 +245,214 @@ input:focus, textarea:focus {
 }
 .searchwrap { position: relative; }
 .searchwrap .sic {
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
   color: var(--muted); pointer-events: none;
 }
-.searchwrap input { padding-left: 40px; }
+.searchwrap input { padding-left: 42px; }
 .muted { color: var(--muted); font-size: 13.5px; }
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; font-size: 14.5px; }
 .empty .eico { color: var(--border); margin-bottom: 12px; }
 .empty p { margin: 2px 0; }
 .empty .sub { font-size: 13.5px; }
-.chips { display: flex; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
+.chips { display: flex; gap: 7px; margin: 14px 0; flex-wrap: wrap; }
 .chip {
-  padding: 7px 15px; min-height: 34px; border-radius: 99px;
+  padding: 7px 17px; min-height: 34px; border-radius: 99px;
   border: 1px solid var(--border); background: var(--surface);
-  font-size: 13.5px; font-weight: 500; color: var(--muted);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted);
   transition: background .2s, color .2s, border-color .2s, transform .12s var(--ease);
 }
 .chip:active { transform: scale(.95); }
-.chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
-/* ---------- Lista de cifras ---------- */
-.songlist { display: flex; flex-direction: column; gap: 8px; }
+.pill {
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  background: var(--pill-bg); color: var(--pill-ink);
+  padding: 4px 11px; border-radius: 99px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.pill.acc { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Grade de artistas (Início) ---------- */
+.artist-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (min-width: 700px) { .artist-grid { grid-template-columns: repeat(4, 1fr); } }
+.artist-card {
+  position: relative; aspect-ratio: 1; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--surface3); cursor: pointer;
+  transition: transform .15s var(--ease), border-color .2s, box-shadow .2s;
+}
+@media (hover: hover) { .artist-card:hover { border-color: var(--accent); box-shadow: var(--shadow); } }
+.artist-card:active { transform: scale(.98); }
+.artist-card img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.artist-card .ph {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 44px; font-weight: 800; color: var(--accent);
+  background: linear-gradient(145deg, var(--accent-soft), var(--surface3));
+}
+.artist-card .ov {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(10, 8, 30, .72), rgba(10, 8, 30, .06) 55%);
+}
+.artist-card .meta { position: absolute; left: 13px; right: 10px; bottom: 11px; z-index: 2; }
+.artist-card .meta .ct {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .82); display: block; margin-bottom: 2px;
+}
+.artist-card .meta .nm {
+  color: #fff; font-size: 17px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- Listas de cifras ---------- */
+.songlist { display: flex; flex-direction: column; gap: 9px; }
 .songitem {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px 15px; min-height: 56px;
-  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  border-radius: var(--radius); padding: 11px 14px; min-height: 62px;
+  display: flex; align-items: center; gap: 13px; cursor: pointer;
   transition: background .15s, border-color .15s, transform .12s var(--ease);
 }
-@media (hover: hover) {
-  .songitem:hover { border-color: var(--accent); }
-}
+@media (hover: hover) { .songitem:hover { border-color: var(--accent); } }
 .songitem:active { background: var(--accent-soft); transform: scale(.99); }
-.songitem .info { flex: 1; min-width: 0; }
-.songitem .t { font-weight: 600; font-size: 15.5px; letter-spacing: -.01em; }
-.songitem .a { color: var(--muted); font-size: 13.5px; margin-top: 1px; }
-.songitem .k {
-  font-size: 12.5px; color: var(--accent); background: var(--accent-soft);
-  padding: 4px 10px; border-radius: 8px; font-weight: 700;
-  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+.songitem .ava {
+  width: 44px; height: 44px; border-radius: 11px; overflow: hidden; flex-shrink: 0;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center;
 }
+.songitem .ava img { width: 100%; height: 100%; object-fit: cover; }
+.songitem .info { flex: 1; min-width: 0; }
+.songitem .t { font-weight: 700; font-size: 15.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.songitem .a { color: var(--muted); font-size: 13.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .songitem .rowic { color: var(--muted); }
 .songitem .snip {
   font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px;
 }
 .songitem .snip mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 1px; }
+
+/* lista "colada" dentro de um contêiner (tela Buscar, painel do artista) */
+.resultbox {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+}
+.resultbox .songitem {
+  border: none; border-bottom: 1px solid var(--border); border-radius: 0; margin: 0;
+}
+.resultbox .songitem:last-child { border-bottom: none; }
+
+/* ---------- Buscar: colunas + buscas recentes ---------- */
+.searchcols { display: grid; grid-template-columns: 1fr; gap: 22px; }
+@media (min-width: 760px) { .searchcols { grid-template-columns: 4fr 8fr; } }
+.recentlist { margin-top: 8px; }
+.recentlist button {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 10px 8px; border-radius: 10px; text-align: left;
+  color: var(--muted); font-size: 14.5px;
+  transition: background .15s, color .15s;
+}
+.recentlist button:active { background: var(--surface2); color: var(--accent); }
+.colhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.colhead .linklike { color: var(--accent); font-size: 12px; font-weight: 700; }
+
+/* ---------- Playlists ---------- */
+.pagehead {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 14px; margin-bottom: 20px;
+}
+.plgrid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 560px) { .plgrid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 880px) { .plgrid { grid-template-columns: repeat(3, 1fr); } }
+.plcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  overflow: hidden; cursor: pointer;
+  transition: transform .15s var(--ease), border-color .2s, box-shadow .2s;
+}
+@media (hover: hover) { .plcard:hover { border-color: var(--accent); box-shadow: var(--shadow); } }
+.plcard:active { transform: scale(.98); }
+.plcard .cover {
+  aspect-ratio: 16 / 9; position: relative; overflow: hidden; background: var(--surface3);
+}
+.plcard .cover img { width: 100%; height: 100%; object-fit: cover; }
+.plcard .cover .ph {
+  position: absolute; inset: 0; display: grid; place-items: center; color: var(--border);
+}
+.plcard .cover .ov { position: absolute; inset: 0; background: linear-gradient(to top, rgba(10, 8, 30, .55), transparent 60%); }
+.plcard .cover .badges { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 6px; z-index: 2; }
+.plcard .cover .badges span {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 6px;
+  background: rgba(255, 255, 255, .22); color: #fff;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.plcard .body { padding: 15px 16px 13px; }
+.plcard .body h3 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.plcard .body p { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.plcard .foot {
+  margin: 12px 16px 0; padding: 11px 0 13px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.plcard.newpl {
+  border-style: dashed; background: transparent; display: grid; place-items: center;
+  min-height: 200px; text-align: center; color: var(--muted);
+}
+.plcard.newpl .plus {
+  width: 46px; height: 46px; border-radius: 99px; background: var(--surface2);
+  display: grid; place-items: center; margin: 0 auto 10px; color: var(--accent);
+}
+.plcard.newpl b { color: var(--accent); font-size: 15px; }
+.plcard.newpl small { display: block; font-size: 12.5px; margin-top: 3px; }
+
+/* ---------- Importar (bento) ---------- */
+.bento { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 800px) { .bento { grid-template-columns: 8fr 4fr; align-items: start; } }
+.cchead { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.cchead .ccbadge {
+  width: 40px; height: 40px; border-radius: 11px; background: #ffb000; color: #1c1500;
+  font-weight: 800; font-size: 20px; display: grid; place-items: center;
+}
+.cchead .h2 { margin: 0; }
+.guide li { display: flex; gap: 10px; margin-bottom: 13px; list-style: none; }
+.guide li svg { color: var(--accent); margin-top: 2px; }
+.guide li p { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.guide li b { color: var(--text); }
+.impgrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 700px) { .impgrid { grid-template-columns: repeat(3, 1fr); } }
+.impcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 15px; cursor: pointer;
+  transition: border-color .2s, transform .12s var(--ease);
+}
+@media (hover: hover) { .impcard:hover { border-color: var(--accent); } }
+.impcard:active { transform: scale(.98); }
+.impcard .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.impcard .src {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  background: var(--pill-bg); color: var(--pill-ink);
+  padding: 3px 8px; border-radius: 5px; text-transform: uppercase;
+}
+.impcard .arrow { color: var(--muted); }
+.impcard h3 { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.impcard .art { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+.impcard .foot { display: flex; justify-content: space-between; align-items: center; }
+.impcard .tags { display: flex; gap: 5px; }
+.impcard .tags span {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--surface2); color: var(--muted); padding: 3px 8px; border-radius: 5px;
+}
+.impcard .ago { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+
+.result-artist { border-left: 3px solid var(--accent); }
+#importProgress .bar { height: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
+#importProgress .fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; border-radius: 99px; }
+.checkrow {
+  display: flex; align-items: center; gap: 11px; min-height: 44px;
+  padding: 7px 4px; border-bottom: 1px solid var(--border);
+  font-size: 14.5px; cursor: pointer;
+}
+.checkrow:last-child { border-bottom: none; }
+.checkrow input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+.checkrow .done { color: var(--ok); font-size: 12.5px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
 /* ---------- Visualizador ---------- */
 #viewer {
@@ -251,11 +467,11 @@ input:focus, textarea:focus {
 }
 #vhead .l1 { display: flex; align-items: center; gap: 6px; }
 #vhead .titles { flex: 1; min-width: 0; padding: 0 2px; }
-#vhead .vt { font-weight: 700; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#vhead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #vhead .va { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .iconbtn {
   width: 42px; height: 42px; display: grid; place-items: center;
-  border-radius: 10px; color: var(--muted);
+  border-radius: 11px; color: var(--muted);
   transition: background .15s, color .15s, transform .12s var(--ease);
 }
 .iconbtn:active { background: var(--accent-soft); color: var(--accent); transform: scale(.92); }
@@ -271,12 +487,12 @@ input:focus, textarea:focus {
 .toolgroup {
   display: flex; align-items: center; gap: 2px;
   background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 2px; flex-shrink: 0;
+  border-radius: 11px; padding: 2px; flex-shrink: 0;
 }
 .toolgroup button {
   min-width: 40px; min-height: 34px; padding: 4px 10px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 700; border-radius: 8px; color: var(--accent);
+  font-size: 16px; font-weight: 700; border-radius: 9px; color: var(--accent);
   transition: background .15s, transform .12s var(--ease);
 }
 .toolgroup button:active { background: var(--accent-soft); transform: scale(.92); }
@@ -303,8 +519,8 @@ input:focus, textarea:focus {
 .modal-bg.open { display: flex; animation: fadeIn .2s var(--ease); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
-  background: var(--surface); border-radius: 20px 20px 0 0;
-  width: 100%; max-width: 640px; max-height: 86vh; overflow: auto;
+  background: var(--surface); border-radius: 22px 22px 0 0;
+  width: 100%; max-width: 680px; max-height: 88vh; overflow: auto;
   padding: 10px 18px calc(20px + var(--safe-bottom));
   box-shadow: var(--shadow);
 }
@@ -314,22 +530,10 @@ input:focus, textarea:focus {
   content: ''; display: block; width: 38px; height: 4px; border-radius: 99px;
   background: var(--border); margin: 4px auto 14px;
 }
-.modal h3 { font-size: 16.5px; font-weight: 700; margin-bottom: 12px; letter-spacing: -.01em; }
-.modal label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin: 12px 0 5px; }
+.modal h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; letter-spacing: -.01em; }
+.modal label { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 14px 0 6px; }
 .modal textarea { font-family: var(--font-mono); font-size: 12.5px; white-space: pre; min-height: 200px; }
 
-/* ---------- Importar ---------- */
-.result-artist { border-left: 3px solid var(--accent); }
-#importProgress .bar { height: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
-#importProgress .fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; border-radius: 99px; }
-.checkrow {
-  display: flex; align-items: center; gap: 11px; min-height: 44px;
-  padding: 7px 4px; border-bottom: 1px solid var(--border);
-  font-size: 14.5px; cursor: pointer;
-}
-.checkrow:last-child { border-bottom: none; }
-.checkrow input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
-.checkrow .done { color: var(--ok); font-size: 12.5px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 #settings textarea { font-family: var(--font-mono); font-size: 12.5px; min-height: 90px; white-space: pre; }
 details { margin-top: 10px; }
 details summary { cursor: pointer; font-size: 14px; color: var(--accent); font-weight: 600; padding: 4px 0; }
@@ -349,7 +553,7 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 .plitem .ordbtns button:disabled { opacity: .3; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%) translateY(6px);
-  bottom: calc(80px + var(--safe-bottom));
+  bottom: calc(86px + var(--safe-bottom));
   background: var(--text); color: var(--bg);
   padding: 11px 20px; border-radius: 99px; font-size: 14px; font-weight: 500;
   z-index: 100; opacity: 0; pointer-events: none;
@@ -362,20 +566,50 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 <body>
 
 <div id="topbar">
-  <div class="logo" aria-hidden="true">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-  </div>
-  <h1>Cifras</h1>
+  <span class="brand">Cifras</span>
   <div class="spacer"></div>
   <span id="netBadge">online</span>
+  <button class="iconbtn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
 </div>
 
 <main>
-  <!-- ================= BIBLIOTECA ================= -->
-  <section id="view-library" class="view active">
-    <div class="searchwrap">
+  <!-- ================= INÍCIO ================= -->
+  <section id="view-home" class="view active">
+    <h1 class="display" id="greeting">Olá.</h1>
+    <p class="lead" id="greetingSub">Seu repertório, pronto para a próxima sessão.</p>
+
+    <div id="homeArtistsWrap" style="display:none">
+      <div class="sectionhead">
+        <h2 class="h2">Artistas</h2>
+        <button class="linklike" id="homeSeeArtists">Ver todos</button>
+      </div>
+      <div class="artist-grid" id="homeArtists"></div>
+    </div>
+
+    <div id="homeSongsWrap" style="display:none">
+      <div class="sectionhead">
+        <h2 class="h2">Adicionadas recentemente</h2>
+        <button class="linklike" id="homeSeeAll">Ver todas</button>
+      </div>
+      <div id="homeSongs" class="songlist"></div>
+    </div>
+
+    <div id="homeEmpty" class="empty" style="display:none">
+      <svg class="eico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <p>Sua biblioteca está vazia.</p>
+      <p class="sub">Importe cifras do CifraClub para começar.</p>
+      <p style="margin-top:16px"><button class="btn" id="emptyImportBtn">Importar cifras</button></p>
+    </div>
+  </section>
+
+  <!-- ================= BUSCAR ================= -->
+  <section id="view-search" class="view">
+    <h1 class="display">Buscar</h1>
+    <div class="searchwrap" style="margin-top:16px">
       <svg class="sic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="search" id="libSearch" placeholder="Buscar na biblioteca…" autocomplete="off" aria-label="Buscar na biblioteca por título, artista ou letra">
+      <input type="search" id="libSearch" placeholder="Música, artista ou trecho da letra…" autocomplete="off" aria-label="Buscar na biblioteca por título, artista ou letra">
     </div>
     <div class="chips" id="libChips">
       <button class="chip active" data-f="all">Tudo</button>
@@ -383,21 +617,39 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
       <button class="chip" data-f="artist">Artista</button>
       <button class="chip" data-f="lyrics">Letra</button>
     </div>
-    <div id="libList" class="songlist"></div>
-    <div id="libEmpty" class="empty" style="display:none">
-      <svg class="eico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      <p>Sua biblioteca está vazia.</p>
-      <p class="sub">Use a aba <b>Importar</b> para baixar cifras do CifraClub.</p>
+    <div class="searchcols">
+      <aside id="recentWrap" style="display:none">
+        <div class="colhead">
+          <span class="label-caps">Buscas recentes</span>
+          <button class="linklike" id="recentClear">Limpar</button>
+        </div>
+        <div class="recentlist" id="recentList"></div>
+      </aside>
+      <div>
+        <div class="colhead"><span class="label-caps" id="resultsLabel">Todas as cifras</span></div>
+        <div id="libList" class="resultbox"></div>
+        <div id="libEmpty" class="empty" style="display:none">
+          <svg class="eico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <p>Sua biblioteca está vazia.</p>
+          <p class="sub">Use a aba <b>Importar</b> para baixar cifras do CifraClub.</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- ================= PLAYLISTS ================= -->
   <section id="view-playlists" class="view">
-    <div class="row" style="margin-bottom:14px">
-      <input type="text" id="plName" placeholder="Nome da nova playlist" style="flex:1;width:auto">
-      <button class="btn" id="plCreate">Criar</button>
+    <div class="pagehead">
+      <div>
+        <h1 class="display">Playlists</h1>
+        <p class="lead">Organize seu repertório para estudos e apresentações.</p>
+      </div>
+      <button class="btn" id="plCreateBtn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Nova playlist
+      </button>
     </div>
-    <div id="plList"></div>
+    <div id="plGrid" class="plgrid"></div>
     <div id="plEmpty" class="empty" style="display:none">
       <svg class="eico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
       <p>Nenhuma playlist ainda.</p>
@@ -406,19 +658,53 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 
   <!-- ================= IMPORTAR ================= -->
   <section id="view-import" class="view">
-    <div class="card">
-      <h2>Buscar no CifraClub</h2>
-      <div class="row">
-        <div class="searchwrap" style="flex:1">
-          <svg class="sic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="ccSearch" placeholder="Música ou artista…" autocomplete="off" aria-label="Buscar música ou artista no CifraClub">
+    <h1 class="display">Importar</h1>
+    <p class="lead" style="margin-bottom:20px">Busque no CifraClub e converta a cifra para o seu repertório pessoal.</p>
+
+    <div class="bento">
+      <div class="card" style="margin-bottom:0">
+        <div class="cchead">
+          <div class="ccbadge">C</div>
+          <h2 class="h2" style="margin:0">Integração CifraClub</h2>
         </div>
-        <button class="btn" id="ccSearchBtn">Buscar</button>
+        <label class="label-caps" style="display:block;margin-bottom:6px">Buscar música ou artista</label>
+        <div class="row">
+          <div class="searchwrap" style="flex:1">
+            <svg class="sic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="ccSearch" placeholder="Música ou artista…" autocomplete="off" aria-label="Buscar música ou artista no CifraClub">
+          </div>
+          <button class="btn" id="ccSearchBtn">Buscar</button>
+        </div>
+        <div id="ccResults" class="songlist" style="margin-top:12px"></div>
+
+        <label class="label-caps" style="display:block;margin:18px 0 6px">Ou importe por URL</label>
+        <div class="row">
+          <input type="text" id="urlInput" placeholder="https://www.cifraclub.com.br/artista/musica/" style="flex:1;width:auto" inputmode="url" aria-label="URL da cifra no CifraClub">
+          <button class="btn" id="urlImportBtn">Importar</button>
+        </div>
+        <p class="label-caps" style="text-align:center;margin-top:14px">Suporte: violão, guitarra, baixo e ukulele</p>
       </div>
-      <div id="ccResults" class="songlist" style="margin-top:12px"></div>
+
+      <aside class="card" style="margin-bottom:0;background:var(--surface2)">
+        <span class="label-caps" style="display:block;margin-bottom:14px">Guia rápido</span>
+        <ul class="guide">
+          <li>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+            <p><b>Transposição:</b> o tom original é mantido, mas você pode transpor na hora, preservando o alinhamento.</p>
+          </li>
+          <li>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+            <p><b>Acordes sincronizados:</b> os acordes ficam alinhados sobre a sílaba certa da letra.</p>
+          </li>
+          <li>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+            <p><b>Modo offline:</b> depois de importada, a cifra fica salva no aparelho e abre sem internet.</p>
+          </li>
+        </ul>
+      </aside>
     </div>
 
-    <div class="card" id="artistPanel" style="display:none">
+    <div class="card" id="artistPanel" style="display:none;margin-top:16px">
       <h2 id="artistPanelTitle">Músicas do artista</h2>
       <div class="row" style="margin-bottom:6px">
         <button class="btn sm ghost" id="artistSelAll">Marcar todas</button>
@@ -429,22 +715,14 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
       <div id="artistSongs"></div>
     </div>
 
-    <div class="card" id="importProgress" style="display:none">
+    <div class="card" id="importProgress" style="display:none;margin-top:16px">
       <h2>Importando…</h2>
       <div class="bar"><div class="fill"></div></div>
       <div class="muted" id="importStatus"></div>
       <button class="btn sm danger" id="importCancel" style="margin-top:10px">Cancelar</button>
     </div>
 
-    <div class="card">
-      <h2>Importar por URL</h2>
-      <div class="row">
-        <input type="text" id="urlInput" placeholder="https://www.cifraclub.com.br/artista/musica/" style="flex:1;width:auto" inputmode="url" aria-label="URL da cifra no CifraClub">
-        <button class="btn" id="urlImportBtn">Importar</button>
-      </div>
-    </div>
-
-    <div class="card">
+    <div class="card" style="margin-top:16px">
       <h2>Colar manualmente</h2>
       <p class="muted" style="margin-bottom:8px">Cole o texto da cifra (acordes em linhas acima da letra) ou o HTML de uma página do CifraClub. Funciona 100% offline.</p>
       <textarea id="pasteInput" style="font-family:var(--font-mono);font-size:12.5px;white-space:pre;min-height:140px" placeholder="[Intro] C  Am  F  G&#10;&#10;        C&#10;Primeira linha da letra…" aria-label="Texto da cifra"></textarea>
@@ -452,90 +730,33 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
         <button class="btn" id="pasteImportBtn">Importar texto</button>
       </div>
     </div>
-  </section>
 
-  <!-- ================= AJUSTES ================= -->
-  <section id="view-settings" class="view" >
-    <div id="settings">
-      <div class="card">
-        <h2>Aparência</h2>
-        <div class="chips" id="themeChips" style="margin:0">
-          <button class="chip" data-t="auto">Automático</button>
-          <button class="chip" data-t="light">Claro</button>
-          <button class="chip" data-t="dark">Escuro</button>
-        </div>
-        <p class="muted" style="margin-top:8px">No modo automático o tema segue o ajuste do aparelho — escuro é ideal para tocar em ambiente de pouca luz.</p>
+    <div id="recentImportsWrap" style="display:none">
+      <div class="sectionhead">
+        <h2 class="h2">Importações recentes</h2>
+        <button class="linklike" id="impSeeAll">Ver todas</button>
       </div>
-
-      <div class="card">
-        <h2>Backup</h2>
-        <div class="row">
-          <button class="btn" id="exportBtn">Exportar biblioteca (JSON)</button>
-          <button class="btn ghost" id="importBackupBtn">Restaurar backup</button>
-          <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none">
-        </div>
-        <p class="muted" style="margin-top:8px" id="storageInfo"></p>
-      </div>
-
-      <div class="card">
-        <h2>Proxies CORS (download das cifras)</h2>
-        <p class="muted" style="margin-bottom:8px">
-          O navegador não pode acessar o cifraclub.com.br diretamente (bloqueio CORS), então o download passa por um destes proxies, testados em ordem. Um por linha; <code>{url}</code> = endereço codificado, <code>{raw}</code> = endereço puro.
-        </p>
-        <textarea id="proxyList" aria-label="Lista de proxies CORS"></textarea>
-        <div class="row" style="margin-top:10px">
-          <button class="btn sm" id="proxySave">Salvar</button>
-          <button class="btn sm ghost" id="proxyTest">Testar proxies</button>
-          <button class="btn sm ghost" id="proxyReset">Padrão</button>
-        </div>
-        <div class="muted" id="proxyTestResult" style="margin-top:8px;white-space:pre-line"></div>
-        <details>
-          <summary>Proxy próprio (recomendado — Cloudflare Worker grátis)</summary>
-          <p class="muted" style="margin-top:6px">Os proxies públicos podem ficar instáveis. Para ter um proxy só seu, crie um Worker gratuito em <b>workers.cloudflare.com</b> com o código abaixo e adicione <code>https://SEU-WORKER.workers.dev/?url={url}</code> na primeira linha da lista acima.</p>
-          <pre>export default {
-  async fetch(req) {
-    const url = new URL(req.url).searchParams.get("url");
-    if (!url || !/^https:\/\/(www\.)?cifraclub\.com\.br\//.test(url))
-      return new Response("URL inválida", { status: 400 });
-    const r = await fetch(url, { headers: { "User-Agent": req.headers.get("User-Agent") || "Mozilla/5.0" } });
-    const h = new Headers(r.headers);
-    h.set("Access-Control-Allow-Origin", "*");
-    h.delete("Content-Security-Policy");
-    return new Response(r.body, { status: r.status, headers: h });
-  }
-};</pre>
-        </details>
-      </div>
-
-      <div class="card">
-        <h2>Como usar no iPad</h2>
-        <p class="muted">
-          1. Hospede estes arquivos em qualquer site estático (GitHub Pages, Netlify…) e abra no Safari — depois toque em <b>Compartilhar → Adicionar à Tela de Início</b>. O app passa a abrir e funcionar <b>totalmente offline</b> (as cifras ficam salvas no próprio aparelho).<br><br>
-          2. Alternativa sem hospedagem: copie o <code>index.html</code> para um app leitor de HTML que suporte JavaScript e armazenamento (ex.: Koder, Documents). A biblioteca fica salva enquanto o app mantiver os dados do site.<br><br>
-          Em ambos os casos, faça <b>backups periódicos</b> pelo botão acima.
-        </p>
-      </div>
-
-      <div class="card">
-        <h2>Zona de perigo</h2>
-        <button class="btn danger" id="wipeBtn">Apagar todas as cifras e playlists</button>
-      </div>
+      <div class="impgrid" id="recentImports"></div>
     </div>
   </section>
 </main>
 
+<button id="fab" aria-label="Importar cifras">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+</button>
+
 <nav id="tabbar">
-  <button data-view="library" class="active" aria-label="Biblioteca">
-    <span class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></span>Biblioteca
+  <button data-view="home" class="active" aria-label="Início">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início
+  </button>
+  <button data-view="search" aria-label="Buscar">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Buscar
   </button>
   <button data-view="playlists" aria-label="Playlists">
-    <span class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg></span>Playlists
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>Playlists
   </button>
   <button data-view="import" aria-label="Importar">
-    <span class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span>Importar
-  </button>
-  <button data-view="settings" aria-label="Ajustes">
-    <span class="ico"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span>Ajustes
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Importar
   </button>
 </nav>
 
@@ -574,7 +795,7 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
         <span class="val" id="vFontVal"></span>
         <button id="vFontUp" aria-label="Aumentar fonte">A+</button>
       </div>
-      <span class="muted" id="vCapo" style="flex-shrink:0"></span>
+      <span class="pill acc" id="vCapo" style="flex-shrink:0;display:none"></span>
     </div>
   </div>
   <div id="vscroll"><div id="vpre"></div></div>
@@ -619,6 +840,109 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
   </div>
 </div>
 
+<div class="modal-bg" id="modalNewPl">
+  <div class="modal">
+    <h3>Nova playlist</h3>
+    <div class="row">
+      <input type="text" id="plName" placeholder="Nome da playlist" style="flex:1;width:auto">
+      <button class="btn" id="plCreate">Criar</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" id="plNewClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalPlDetail">
+  <div class="modal">
+    <h3 id="plDetailName" style="margin-bottom:2px"></h3>
+    <p class="muted" id="plDetailCount" style="margin-bottom:12px"></p>
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn sm" id="plDetailPlay">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Tocar
+      </button>
+      <button class="btn sm ghost" id="plDetailRen">Renomear</button>
+      <button class="btn sm danger" id="plDetailDel">Excluir</button>
+      <div style="flex:1"></div>
+      <button class="btn sm subtle" id="plDetailClose">Fechar</button>
+    </div>
+    <div class="songlist" id="plDetailSongs"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalSettings">
+  <div class="modal" id="settings">
+    <h3>Ajustes</h3>
+    <div class="card">
+      <h2>Aparência</h2>
+      <div class="chips" id="themeChips" style="margin:0">
+        <button class="chip" data-t="auto">Automático</button>
+        <button class="chip" data-t="light">Claro</button>
+        <button class="chip" data-t="dark">Escuro</button>
+      </div>
+      <p class="muted" style="margin-top:8px">No modo automático o tema segue o ajuste do aparelho — escuro é ideal para tocar em ambiente de pouca luz.</p>
+    </div>
+
+    <div class="card">
+      <h2>Backup</h2>
+      <div class="row">
+        <button class="btn" id="exportBtn">Exportar biblioteca (JSON)</button>
+        <button class="btn ghost" id="importBackupBtn">Restaurar backup</button>
+        <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none">
+      </div>
+      <p class="muted" style="margin-top:8px" id="storageInfo"></p>
+    </div>
+
+    <div class="card">
+      <h2>Proxies CORS (download das cifras)</h2>
+      <p class="muted" style="margin-bottom:8px">
+        O navegador não pode acessar o cifraclub.com.br diretamente (bloqueio CORS), então o download passa por um destes proxies, testados em ordem. Um por linha; <code>{url}</code> = endereço codificado, <code>{raw}</code> = endereço puro.
+      </p>
+      <textarea id="proxyList" aria-label="Lista de proxies CORS"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn sm" id="proxySave">Salvar</button>
+        <button class="btn sm ghost" id="proxyTest">Testar proxies</button>
+        <button class="btn sm ghost" id="proxyReset">Padrão</button>
+      </div>
+      <div class="muted" id="proxyTestResult" style="margin-top:8px;white-space:pre-line"></div>
+      <details>
+        <summary>Proxy próprio (recomendado — Cloudflare Worker grátis)</summary>
+        <p class="muted" style="margin-top:6px">Os proxies públicos podem ficar instáveis. Para ter um proxy só seu, crie um Worker gratuito em <b>workers.cloudflare.com</b> com o código abaixo e adicione <code>https://SEU-WORKER.workers.dev/?url={url}</code> na primeira linha da lista acima.</p>
+        <pre>export default {
+  async fetch(req) {
+    const url = new URL(req.url).searchParams.get("url");
+    if (!url || !/^https:\/\/(www\.)?cifraclub\.com\.br\//.test(url))
+      return new Response("URL inválida", { status: 400 });
+    const r = await fetch(url, { headers: { "User-Agent": req.headers.get("User-Agent") || "Mozilla/5.0" } });
+    const h = new Headers(r.headers);
+    h.set("Access-Control-Allow-Origin", "*");
+    h.delete("Content-Security-Policy");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+};</pre>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Como usar no iPad</h2>
+      <p class="muted">
+        1. Hospede estes arquivos em qualquer site estático (GitHub Pages, Netlify…) e abra no Safari — depois toque em <b>Compartilhar → Adicionar à Tela de Início</b>. O app passa a abrir e funcionar <b>totalmente offline</b> (as cifras ficam salvas no próprio aparelho).<br><br>
+        2. Alternativa sem hospedagem: copie o <code>index.html</code> para um app leitor de HTML que suporte JavaScript e armazenamento (ex.: Koder, Documents). A biblioteca fica salva enquanto o app mantiver os dados do site.<br><br>
+        Em ambos os casos, faça <b>backups periódicos</b> pelo botão acima.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Zona de perigo</h2>
+      <button class="btn danger" id="wipeBtn">Apagar todas as cifras e playlists</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="settingsClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -626,6 +950,7 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 /* =====================================================================
  * Cifras — app de cifras offline com importação do CifraClub
  * Arquivo único: roda hospedado (PWA) ou aberto em leitor de HTML.
+ * Layout: "CifraPad Manager" (Stitch) traduzido para CSS próprio.
  * =================================================================== */
 
 /* ------------------------- utilidades ------------------------- */
@@ -649,6 +974,11 @@ const I = {
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  note: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  chevron: '<path d="m9 18 6-6-6-6"/>',
+  history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  playlist: '<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/>',
 };
 
 function toast(msg, ms=2600) {
@@ -658,9 +988,22 @@ function toast(msg, ms=2600) {
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), ms);
 }
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = Date.now() - ts;
+  const min = Math.floor(d / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const dias = Math.floor(h / 24);
+  if (dias === 1) return 'ontem';
+  if (dias < 30) return `há ${dias} dias`;
+  return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
 
 /* ------------------------- banco (IndexedDB) ------------------------- */
-const DB_NAME = 'cifras-db', DB_VER = 1;
+const DB_NAME = 'cifras-db', DB_VER = 2;
 let _db = null;
 
 function openDB() {
@@ -671,6 +1014,7 @@ function openDB() {
       if (!db.objectStoreNames.contains('songs')) db.createObjectStore('songs', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', { keyPath: 'slug' });
     };
     rq.onsuccess = () => { _db = rq.result; res(_db); };
     rq.onerror = () => rej(rq.error);
@@ -704,13 +1048,56 @@ const setSetting = (key, value) => dbPut('settings', { key, value });
 
 /* cache em memória */
 let SONGS = [];      // [{id,title,artist,artistSlug,songSlug,originalKey,capo,transpose,content,createdAt}]
-let PLAYLISTS = [];  // [{id,name,songIds:[]}]
+let PLAYLISTS = [];  // [{id,name,songIds:[],createdAt,updatedAt}]
 
 async function reloadCache() {
   SONGS = (await dbAll('songs')).sort((a,b) =>
     norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title)));
   PLAYLISTS = (await dbAll('playlists')).sort((a,b) => norm(a.name).localeCompare(norm(b.name)));
 }
+/* grava playlist marcando a hora da alteração (mostrado no card) */
+function plPut(pl) { pl.updatedAt = Date.now(); return dbPut('playlists', pl); }
+
+/* ------------------------- fotos de artista (CifraClub) ------------------------- */
+/* A busca do solr devolve o hash da foto (campo "i"); o CDN sscdn tem CORS
+ * liberado, então o thumbnail é baixado uma vez e guardado no IndexedDB —
+ * as fotos continuam aparecendo offline. */
+const IMG_BASE = 'https://akamai.sscdn.co/letras/215x215/fotos/';
+const ARTIMG = new Map(); // artistSlug -> objectURL
+
+async function loadArtistImages() {
+  try {
+    for (const rec of await dbAll('images')) {
+      if (rec.blob) ARTIMG.set(rec.slug, URL.createObjectURL(rec.blob));
+    }
+  } catch {}
+}
+async function cacheArtistImage(slug, hash) {
+  if (!slug || !hash || ARTIMG.has(slug)) return;
+  ARTIMG.set(slug, IMG_BASE + hash); // uso imediato via rede enquanto baixa
+  try {
+    const res = await fetch(IMG_BASE + hash);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    await dbPut('images', { slug, hash, blob });
+    ARTIMG.set(slug, URL.createObjectURL(blob));
+    rerenderLists();
+  } catch { /* fica só a URL remota nesta sessão */ }
+}
+/* melhor esforço: acha a foto de um artista pelo nome (usado no import por URL) */
+async function lookupArtistImage(slug, name) {
+  if (!slug || ARTIMG.has(slug) || !navigator.onLine) return;
+  try {
+    const docs = await ccSearch(name);
+    const doc = docs.find(d => d.artistSlug === slug && d.img);
+    if (doc) await cacheArtistImage(slug, doc.img);
+  } catch {}
+}
+const artistImgSrc = slug => ARTIMG.get(slug) || null;
+const avatarHtml = slug => {
+  const src = artistImgSrc(slug);
+  return `<span class="ava">${src ? `<img src="${src}" alt="" loading="lazy">` : svg(I.note, 19)}</span>`;
+};
 
 /* ------------------------- tema (claro/escuro) ------------------------- */
 let themePref = 'auto';
@@ -937,6 +1324,7 @@ async function ccSearch(q) {
   return (json.response?.docs || []).map(d => ({
     type: d.t === '1' ? 'artist' : 'song',
     title: d.m || d.a, artist: d.a, artistSlug: d.d, songSlug: d.u,
+    img: d.i || '',
   })).filter(d => d.artistSlug);
 }
 
@@ -964,24 +1352,139 @@ async function saveSong(parsed) {
 }
 
 /* ------------------------- navegação por abas ------------------------- */
+let currentView = 'home';
 function showView(name) {
+  currentView = name;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
-  if (name === 'library') renderLibrary();
+  $('#fab').classList.toggle('show', name === 'home');
+  if (name === 'home') renderHome();
+  if (name === 'search') renderSearch();
   if (name === 'playlists') renderPlaylists();
-  if (name === 'settings') renderStorageInfo();
+  if (name === 'import') renderRecentImports();
 }
 $$('#tabbar button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+$('#fab').addEventListener('click', () => showView('import'));
+$('#emptyImportBtn').addEventListener('click', () => showView('import'));
+$('#homeSeeAll').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('all'); showView('search'); });
+$('#homeSeeArtists').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('artist'); showView('search'); });
+$('#impSeeAll').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('all'); showView('search'); });
 
-/* ------------------------- biblioteca / busca local ------------------------- */
+/* re-render das listas visíveis (após mudanças de dados/fotos) */
+function rerenderLists() {
+  if (currentView === 'home') renderHome();
+  if (currentView === 'search') renderSearch();
+  if (currentView === 'playlists') renderPlaylists();
+  if (currentView === 'import') renderRecentImports();
+}
+
+/* ------------------------- Início ------------------------- */
+function greetingNow() {
+  const h = new Date().getHours();
+  return h < 6 ? 'Boa noite.' : h < 12 ? 'Bom dia.' : h < 18 ? 'Boa tarde.' : 'Boa noite.';
+}
+function artistGroups() {
+  const map = new Map();
+  for (const s of SONGS) {
+    const key = s.artistSlug || norm(s.artist);
+    if (!map.has(key)) map.set(key, { name: s.artist, slug: s.artistSlug, count: 0, last: 0 });
+    const g = map.get(key);
+    g.count++;
+    g.last = Math.max(g.last, s.createdAt || 0);
+  }
+  return Array.from(map.values()).sort((a, b) => b.last - a.last);
+}
+function renderHome() {
+  $('#greeting').textContent = greetingNow();
+  $('#greetingSub').textContent = SONGS.length
+    ? `${SONGS.length} cifra${SONGS.length === 1 ? '' : 's'} no seu repertório, prontas para tocar.`
+    : 'Seu repertório, pronto para a próxima sessão.';
+  $('#homeEmpty').style.display = SONGS.length ? 'none' : '';
+  $('#homeArtistsWrap').style.display = SONGS.length ? '' : 'none';
+  $('#homeSongsWrap').style.display = SONGS.length ? '' : 'none';
+  if (!SONGS.length) return;
+
+  // grade de artistas recentes (foto do CifraClub quando disponível)
+  const grid = $('#homeArtists');
+  grid.innerHTML = '';
+  for (const g of artistGroups().slice(0, 8)) {
+    const src = artistImgSrc(g.slug);
+    const el = document.createElement('div');
+    el.className = 'artist-card';
+    el.innerHTML = `
+      ${src ? `<img src="${src}" alt="" loading="lazy">` : `<div class="ph">${escHtml((g.name[0] || '♪').toUpperCase())}</div>`}
+      <div class="ov"></div>
+      <div class="meta">
+        <span class="ct">${g.count} cifra${g.count === 1 ? '' : 's'}</span>
+        <span class="nm">${escHtml(g.name)}</span>
+      </div>`;
+    el.addEventListener('click', () => {
+      $('#libSearch').value = g.name;
+      setFilter('artist');
+      showView('search');
+    });
+    grid.appendChild(el);
+  }
+
+  // adicionadas recentemente
+  const list = $('#homeSongs');
+  list.innerHTML = '';
+  const recent = [...SONGS].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
+  for (const s of recent) list.appendChild(songRow(s));
+}
+function songRow(s, snip) {
+  const el = document.createElement('div');
+  el.className = 'songitem';
+  el.innerHTML = `${avatarHtml(s.artistSlug)}
+    <div class="info">
+      <div class="t">${escHtml(s.title)}</div>
+      <div class="a">${escHtml(s.artist)}</div>
+      ${snip ? `<div class="snip">…${escHtml(snip)}…</div>` : ''}
+    </div>
+    <span class="pill">${escHtml(currentKey(s))}</span>
+    <span class="rowic">${svg(I.chevron, 17)}</span>`;
+  el.addEventListener('click', () => openViewer(s.id));
+  return el;
+}
+
+/* ------------------------- Buscar (biblioteca local) ------------------------- */
 let libFilter = 'all';
+let RECENTS = [];
+function setFilter(f) {
+  libFilter = f;
+  $$('#libChips .chip').forEach(x => x.classList.toggle('active', x.dataset.f === f));
+}
 $('#libChips').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
-  libFilter = c.dataset.f;
-  $$('#libChips .chip').forEach(x => x.classList.toggle('active', x === c));
-  renderLibrary();
+  setFilter(c.dataset.f);
+  renderSearch();
 });
-$('#libSearch').addEventListener('input', () => renderLibrary());
+$('#libSearch').addEventListener('input', () => renderSearch());
+$('#libSearch').addEventListener('keydown', e => { if (e.key === 'Enter') saveRecent($('#libSearch').value.trim()); });
+$('#recentClear').addEventListener('click', async () => {
+  RECENTS = [];
+  await setSetting('recentSearches', RECENTS);
+  renderSearch();
+});
+async function saveRecent(q) {
+  if (!q) return;
+  RECENTS = [q, ...RECENTS.filter(x => norm(x) !== norm(q))].slice(0, 5);
+  await setSetting('recentSearches', RECENTS);
+  renderRecents();
+}
+function renderRecents() {
+  const wrap = $('#recentWrap');
+  wrap.style.display = RECENTS.length ? '' : 'none';
+  const box = $('#recentList');
+  box.innerHTML = '';
+  for (const q of RECENTS) {
+    const b = document.createElement('button');
+    b.innerHTML = `${svg(I.history, 17)}<span></span>`;
+    b.querySelector('span').textContent = q;
+    b.addEventListener('click', () => { $('#libSearch').value = q; renderSearch(); });
+    box.appendChild(b);
+  }
+}
 
 function searchSongs(q, filter) {
   if (!q) return SONGS.map(s => ({ s }));
@@ -1011,26 +1514,25 @@ function searchSongs(q, filter) {
   out.sort((a, b) => b.score - a.score);
   return out;
 }
-function renderLibrary() {
+function renderSearch() {
+  renderRecents();
   const q = $('#libSearch').value.trim();
   const results = searchSongs(q, libFilter);
   const list = $('#libList');
   list.innerHTML = '';
   $('#libEmpty').style.display = (!SONGS.length) ? '' : 'none';
+  list.style.display = SONGS.length ? '' : 'none';
+  $('#resultsLabel').textContent = q
+    ? `Resultados (${results.length})`
+    : `Todas as cifras (${SONGS.length})`;
   if (!results.length && SONGS.length) {
-    list.innerHTML = '<div class="empty">Nada encontrado.</div>';
+    list.innerHTML = '<div class="empty" style="padding:30px 16px">Nada encontrado.</div>';
     return;
   }
   for (const { s, snip } of results) {
-    const el = document.createElement('div');
-    el.className = 'songitem';
-    el.innerHTML = `<div class="info">
-        <div class="t">${escHtml(s.title)}</div>
-        <div class="a">${escHtml(s.artist)}</div>
-        ${snip ? `<div class="snip">…${escHtml(snip)}…</div>` : ''}
-      </div><span class="k">${escHtml(currentKey(s))}</span>`;
-    el.addEventListener('click', () => openViewer(s.id));
-    list.appendChild(el);
+    const row = songRow(s, snip);
+    if (q) row.addEventListener('click', () => saveRecent(q), { once: true });
+    list.appendChild(row);
   }
 }
 
@@ -1052,7 +1554,7 @@ function openViewer(songId, context) {
 function closeViewer() {
   $('#viewer').classList.remove('open');
   vSongId = null; vContext = null;
-  renderLibrary(); renderPlaylists();
+  rerenderLists();
 }
 function vSong() { return SONGS.find(s => s.id === vSongId); }
 
@@ -1062,7 +1564,9 @@ function renderViewer() {
   $('#vArtist').textContent = s.artist;
   const n = s.transpose || 0;
   $('#vKey').textContent = currentKey(s) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '');
-  $('#vCapo').textContent = s.capo || '';
+  const capoEl = $('#vCapo');
+  capoEl.textContent = s.capo || '';
+  capoEl.style.display = s.capo ? '' : 'none';
   $('#vFontVal').textContent = fontSize + 'px';
   const content = transposeContent(s.content, n, s.originalKey);
   $('#vpre').style.fontSize = fontSize + 'px';
@@ -1112,7 +1616,7 @@ $('#vDelete').addEventListener('click', async () => {
   for (const p of PLAYLISTS) {
     if (p.songIds.includes(s.id)) {
       p.songIds = p.songIds.filter(id => id !== s.id);
-      await dbPut('playlists', p);
+      await plPut(p);
     }
   }
   await reloadCache();
@@ -1146,82 +1650,139 @@ $('#eSave').addEventListener('click', async () => {
 });
 
 /* ------------------------- playlists ------------------------- */
+$('#plCreateBtn').addEventListener('click', () => {
+  $('#plName').value = '';
+  $('#modalNewPl').classList.add('open');
+  setTimeout(() => $('#plName').focus(), 80);
+});
+$('#plNewClose').addEventListener('click', () => $('#modalNewPl').classList.remove('open'));
+$('#plName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#plCreate').click(); });
 $('#plCreate').addEventListener('click', async () => {
   const name = $('#plName').value.trim();
   if (!name) return toast('Dê um nome à playlist');
-  await dbPut('playlists', { id: uid(), name, songIds: [], createdAt: Date.now() });
-  $('#plName').value = '';
+  await plPut({ id: uid(), name, songIds: [], createdAt: Date.now() });
+  $('#modalNewPl').classList.remove('open');
   await reloadCache();
   renderPlaylists();
 });
+
+/* capa da playlist = primeira foto de artista disponível entre as músicas */
+function plCoverSrc(pl) {
+  for (const sid of pl.songIds) {
+    const s = SONGS.find(x => x.id === sid);
+    const src = s && artistImgSrc(s.artistSlug);
+    if (src) return src;
+  }
+  return null;
+}
 function renderPlaylists() {
-  const wrap = $('#plList');
+  const wrap = $('#plGrid');
   wrap.innerHTML = '';
   $('#plEmpty').style.display = PLAYLISTS.length ? 'none' : '';
   for (const pl of PLAYLISTS) {
+    const cover = plCoverSrc(pl);
     const card = document.createElement('div');
-    card.className = 'card';
-    const head = document.createElement('div');
-    head.className = 'row';
-    head.innerHTML = `<b style="flex:1">${escHtml(pl.name)}</b>
-      <span class="muted">${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}</span>
-      <button class="btn sm subtle" data-act="play" ${pl.songIds.length ? '' : 'disabled'}>${svg(I.play, 13)} Tocar</button>
-      <button class="btn sm ghost" data-act="ren">Renomear</button>
-      <button class="btn sm danger" data-act="del">Excluir</button>`;
-    card.appendChild(head);
-    const list = document.createElement('div');
-    list.className = 'songlist';
-    list.style.marginTop = '12px';
-    pl.songIds.forEach((sid, i) => {
-      const s = SONGS.find(x => x.id === sid);
-      if (!s) return;
-      const item = document.createElement('div');
-      item.className = 'songitem plitem';
-      item.innerHTML = `<div class="ordbtns">
-          <button data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">${svg(I.up, 15)}</button>
-          <button data-mv="1" ${i === pl.songIds.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">${svg(I.down, 15)}</button>
-        </div>
-        <div class="info"><div class="t">${escHtml(s.title)}</div><div class="a">${escHtml(s.artist)}</div></div>
-        <span class="k">${escHtml(currentKey(s))}</span>
-        <button class="iconbtn" data-rm="1" style="color:var(--danger);width:36px;height:36px" aria-label="Remover da playlist">${svg(I.x, 16)}</button>`;
-      item.addEventListener('click', e => {
-        const mv = e.target.closest('[data-mv]');
-        const rm = e.target.closest('[data-rm]');
-        if (mv) { movePlSong(pl, i, +mv.dataset.mv); e.stopPropagation(); return; }
-        if (rm) { removePlSong(pl, i); e.stopPropagation(); return; }
-        openViewer(sid, { playlistId: pl.id, index: i });
-      });
-      list.appendChild(item);
-    });
-    card.appendChild(list);
-    head.addEventListener('click', async e => {
-      const act = e.target.closest('[data-act]')?.dataset.act;
-      if (!act) return;
-      if (act === 'play') openViewer(pl.songIds[0], { playlistId: pl.id, index: 0 });
-      if (act === 'ren') {
-        const name = prompt('Novo nome:', pl.name);
-        if (name?.trim()) { pl.name = name.trim(); await dbPut('playlists', pl); await reloadCache(); renderPlaylists(); }
-      }
-      if (act === 'del' && confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) {
-        await dbDel('playlists', pl.id); await reloadCache(); renderPlaylists();
-      }
-    });
+    card.className = 'plcard';
+    card.innerHTML = `
+      <div class="cover">
+        ${cover ? `<img src="${cover}" alt="" loading="lazy">` : `<div class="ph">${svg(I.playlist, 52)}</div>`}
+        <div class="ov"></div>
+        <div class="badges"><span>${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}</span></div>
+      </div>
+      <div class="body">
+        <h3>${escHtml(pl.name)}</h3>
+      </div>
+      <div class="foot">
+        <span class="label-caps">Atualizada ${timeAgo(pl.updatedAt || pl.createdAt) || 'agora'}</span>
+        <span class="rowic" style="color:var(--muted)">${svg(I.chevron, 17)}</span>
+      </div>`;
+    card.addEventListener('click', () => openPlaylistSheet(pl.id));
     wrap.appendChild(card);
   }
+  // card pontilhado: nova playlist
+  const add = document.createElement('div');
+  add.className = 'plcard newpl';
+  add.innerHTML = `<div><div class="plus">${svg('<path d="M5 12h14"/><path d="M12 5v14"/>', 21)}</div>
+    <b>Nova playlist</b><small>Comece uma nova coleção de cifras</small></div>`;
+  add.addEventListener('click', () => $('#plCreateBtn').click());
+  wrap.appendChild(add);
 }
+
+/* folha de detalhes da playlist (tocar, renomear, excluir, ordenar) */
+let plDetailId = null;
+function openPlaylistSheet(id) {
+  plDetailId = id;
+  renderPlaylistSheet();
+  $('#modalPlDetail').classList.add('open');
+}
+function renderPlaylistSheet() {
+  const pl = PLAYLISTS.find(p => p.id === plDetailId);
+  if (!pl) { $('#modalPlDetail').classList.remove('open'); return; }
+  $('#plDetailName').textContent = pl.name;
+  $('#plDetailCount').textContent = `${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}`;
+  $('#plDetailPlay').disabled = !pl.songIds.length;
+  const list = $('#plDetailSongs');
+  list.innerHTML = pl.songIds.length ? '' : '<p class="muted">Nenhuma música ainda — abra uma cifra e use o botão “+” para adicionar.</p>';
+  pl.songIds.forEach((sid, i) => {
+    const s = SONGS.find(x => x.id === sid);
+    if (!s) return;
+    const item = document.createElement('div');
+    item.className = 'songitem plitem';
+    item.innerHTML = `<div class="ordbtns">
+        <button data-mv="-1" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">${svg(I.up, 15)}</button>
+        <button data-mv="1" ${i === pl.songIds.length - 1 ? 'disabled' : ''} aria-label="Mover para baixo">${svg(I.down, 15)}</button>
+      </div>
+      ${avatarHtml(s.artistSlug)}
+      <div class="info"><div class="t">${escHtml(s.title)}</div><div class="a">${escHtml(s.artist)}</div></div>
+      <span class="pill">${escHtml(currentKey(s))}</span>
+      <button class="iconbtn" data-rm="1" style="color:var(--danger);width:36px;height:36px" aria-label="Remover da playlist">${svg(I.x, 16)}</button>`;
+    item.addEventListener('click', e => {
+      const mv = e.target.closest('[data-mv]');
+      const rm = e.target.closest('[data-rm]');
+      if (mv) { movePlSong(pl, i, +mv.dataset.mv); e.stopPropagation(); return; }
+      if (rm) { removePlSong(pl, i); e.stopPropagation(); return; }
+      $('#modalPlDetail').classList.remove('open');
+      openViewer(sid, { playlistId: pl.id, index: i });
+    });
+    list.appendChild(item);
+  });
+}
+$('#plDetailClose').addEventListener('click', () => $('#modalPlDetail').classList.remove('open'));
+$('#plDetailPlay').addEventListener('click', () => {
+  const pl = PLAYLISTS.find(p => p.id === plDetailId);
+  if (!pl || !pl.songIds.length) return;
+  $('#modalPlDetail').classList.remove('open');
+  openViewer(pl.songIds[0], { playlistId: pl.id, index: 0 });
+});
+$('#plDetailRen').addEventListener('click', async () => {
+  const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
+  const name = prompt('Novo nome:', pl.name);
+  if (name?.trim()) {
+    pl.name = name.trim();
+    await plPut(pl); await reloadCache();
+    renderPlaylistSheet(); renderPlaylists();
+  }
+});
+$('#plDetailDel').addEventListener('click', async () => {
+  const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
+  if (!confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) return;
+  await dbDel('playlists', pl.id); await reloadCache();
+  $('#modalPlDetail').classList.remove('open');
+  renderPlaylists();
+});
 async function movePlSong(pl, i, d) {
   const j = i + d;
   if (j < 0 || j >= pl.songIds.length) return;
   [pl.songIds[i], pl.songIds[j]] = [pl.songIds[j], pl.songIds[i]];
-  await dbPut('playlists', pl);
+  await plPut(pl);
   await reloadCache();
-  renderPlaylists();
+  renderPlaylistSheet();
 }
 async function removePlSong(pl, i) {
   pl.songIds.splice(i, 1);
-  await dbPut('playlists', pl);
+  await plPut(pl);
   await reloadCache();
-  renderPlaylists();
+  renderPlaylistSheet();
 }
 /* adicionar à playlist (do visualizador) */
 $('#vAddPl').addEventListener('click', () => {
@@ -1236,7 +1797,7 @@ $('#vAddPl').addEventListener('click', () => {
     b.addEventListener('click', async () => {
       if (has) pl.songIds = pl.songIds.filter(id => id !== vSongId);
       else pl.songIds.push(vSongId);
-      await dbPut('playlists', pl);
+      await plPut(pl);
       await reloadCache();
       $('#vAddPl').click(); // re-render do modal
     });
@@ -1248,7 +1809,7 @@ $('#plPickClose').addEventListener('click', () => $('#modalPl').classList.remove
 $('#plPickCreate').addEventListener('click', async () => {
   const name = $('#plPickNew').value.trim();
   if (!name) return;
-  await dbPut('playlists', { id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
+  await plPut({ id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
   $('#plPickNew').value = '';
   await reloadCache();
   $('#modalPl').classList.remove('open');
@@ -1278,17 +1839,21 @@ async function doCcSearch() {
       const el = document.createElement('div');
       el.className = 'songitem' + (r.type === 'artist' ? ' result-artist' : '');
       const inLib = r.type === 'song' && SONGS.some(s => s.artistSlug === r.artistSlug && s.songSlug === r.songSlug);
+      const ava = r.img
+        ? `<span class="ava"><img src="${IMG_BASE + escHtml(r.img)}" alt="" loading="lazy"></span>`
+        : `<span class="ava">${svg(r.type === 'artist' ? I.users : I.note, 19)}</span>`;
       el.innerHTML = r.type === 'artist'
-        ? `<div class="info"><div class="t">${escHtml(r.artist)}</div><div class="a">Artista — ver todas as músicas</div></div><span class="rowic">${svg(I.users, 20)}</span>`
-        : `<div class="info"><div class="t">${escHtml(r.title)}</div><div class="a">${escHtml(r.artist)}</div></div>
-           <span class="${inLib ? 'muted' : 'k'}">${inLib ? 'na biblioteca' : svg(I.download, 13) + ' baixar'}</span>`;
+        ? `${ava}<div class="info"><div class="t">${escHtml(r.artist)}</div><div class="a">Artista — ver todas as músicas</div></div><span class="rowic">${svg(I.chevron, 17)}</span>`
+        : `${ava}<div class="info"><div class="t">${escHtml(r.title)}</div><div class="a">${escHtml(r.artist)}</div></div>
+           <span class="${inLib ? 'muted' : 'pill acc'}">${inLib ? 'na biblioteca' : svg(I.download, 12) + ' baixar'}</span>`;
       el.addEventListener('click', async () => {
         if (r.type === 'artist') return loadArtistPanel(r.artistSlug, r.artist);
         el.style.opacity = .5;
         try {
           const { song, updated } = await importOneSong(r.artistSlug, r.songSlug);
+          cacheArtistImage(r.artistSlug, r.img); // foto do artista p/ uso offline
           toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
-          renderLibrary();
+          renderRecentImports();
         } catch (err) { toast('Erro: ' + err.message, 4000); }
         el.style.opacity = 1;
       });
@@ -1306,6 +1871,7 @@ async function loadArtistPanel(slug, name) {
   $('#artistPanelTitle').textContent = `Músicas de ${name || slug} — carregando…`;
   $('#artistSongs').innerHTML = '';
   panel.scrollIntoView({ behavior: 'smooth' });
+  lookupArtistImage(slug, name || slug); // melhor esforço, em paralelo
   try {
     const html = await fetchCifraClub(artistUrl(slug), t => t.includes(`/${slug}/`));
     const { artistName, songs } = parseArtistPage(html, slug);
@@ -1346,7 +1912,7 @@ $('#artistImportBtn').addEventListener('click', async () => {
   }
   $('#importProgress .fill').style.width = '100%';
   $('#importStatus').textContent = `Concluído: ${ok} importadas${fail ? `, ${fail} falharam` : ''}${cancelImport ? ' (cancelado)' : ''}`;
-  renderLibrary();
+  renderRecentImports();
   toast(`${ok} cifras importadas`);
   setTimeout(() => { prog.style.display = 'none'; }, 4000);
 });
@@ -1360,8 +1926,10 @@ $('#urlImportBtn').addEventListener('click', async () => {
   $('#urlImportBtn').disabled = true;
   try {
     const { song, updated } = await importOneSong(m[1], m[2]);
+    lookupArtistImage(m[1], song.artist); // foto do artista, melhor esforço
     toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
     $('#urlInput').value = '';
+    renderRecentImports();
   } catch (err) { toast('Erro: ' + err.message, 4000); }
   $('#urlImportBtn').disabled = false;
 });
@@ -1392,7 +1960,39 @@ $('#pasteImportBtn').addEventListener('click', async () => {
   } catch (err) { toast('Erro: ' + err.message, 4000); }
 });
 
+/* importações recentes (cards no rodapé da aba Importar) */
+function renderRecentImports() {
+  const wrap = $('#recentImportsWrap');
+  const grid = $('#recentImports');
+  const recent = [...SONGS].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
+  wrap.style.display = recent.length ? '' : 'none';
+  grid.innerHTML = '';
+  for (const s of recent) {
+    const el = document.createElement('div');
+    el.className = 'impcard';
+    el.innerHTML = `
+      <div class="top">
+        <span class="src">${s.artistSlug ? 'Cifra Club' : 'Manual'}</span>
+        <span class="arrow">${svg(I.arrow, 16)}</span>
+      </div>
+      <h3>${escHtml(s.title)}</h3>
+      <p class="art">${escHtml(s.artist)}</p>
+      <div class="foot">
+        <div class="tags"><span>Tom: ${escHtml(currentKey(s))}</span>${s.capo ? `<span>Capo</span>` : ''}</div>
+        <span class="ago">${timeAgo(s.createdAt)}</span>
+      </div>`;
+    el.addEventListener('click', () => openViewer(s.id));
+    grid.appendChild(el);
+  }
+}
+
 /* ------------------------- ajustes ------------------------- */
+$('#settingsBtn').addEventListener('click', () => {
+  renderStorageInfo();
+  $('#modalSettings').classList.add('open');
+});
+$('#settingsClose').addEventListener('click', () => $('#modalSettings').classList.remove('open'));
+
 async function loadProxies() {
   PROXIES = await getSetting('proxies', DEFAULT_PROXIES.slice());
   $('#proxyList').value = PROXIES.join('\n');
@@ -1444,7 +2044,7 @@ $('#importBackupFile').addEventListener('change', async e => {
     for (const s of data.songs) { if (s.id && s.content != null) { await dbPut('songs', s); n++; } }
     for (const p of (data.playlists || [])) { if (p.id) await dbPut('playlists', p); }
     await reloadCache();
-    renderLibrary();
+    rerenderLists();
     toast(`Backup restaurado: ${n} cifras`);
   } catch (err) { toast('Erro no backup: ' + err.message, 4000); }
   e.target.value = '';
@@ -1452,8 +2052,10 @@ $('#importBackupFile').addEventListener('change', async e => {
 $('#wipeBtn').addEventListener('click', async () => {
   if (!confirm('Apagar TODAS as cifras e playlists? Esta ação não pode ser desfeita.')) return;
   await dbClear('songs'); await dbClear('playlists');
+  try { await dbClear('images'); } catch {}
+  ARTIMG.clear();
   await reloadCache();
-  renderLibrary(); renderPlaylists();
+  rerenderLists();
   toast('Tudo apagado');
 });
 async function renderStorageInfo() {
@@ -1481,13 +2083,15 @@ window.addEventListener('offline', updateNet);
 (async function init() {
   await openDB();
   await reloadCache();
+  await loadArtistImages();
   fontSize = await getSetting('fontSize', 14);
   themePref = await getSetting('theme', 'auto');
+  RECENTS = await getSetting('recentSearches', []);
   applyTheme();
   renderThemeChips();
   await loadProxies();
   updateNet();
-  renderLibrary();
+  showView('home');
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
