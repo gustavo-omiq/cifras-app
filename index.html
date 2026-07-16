@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cifras">
+<title>Cifras — Guitarra &amp; Violão</title>
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --text: #2b2a27;
+  --muted: #8a8578;
+  --accent: #c4551a;
+  --accent-soft: #fdeee4;
+  --border: #e6e2d8;
+  --chord: #c4551a;
+  --tab-bg: #faf8f2;
+  --danger: #b3372c;
+  --ok: #3a7d44;
+  --radius: 10px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  overscroll-behavior-y: none;
+}
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+
+/* ---------- Shell ---------- */
+#topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: calc(8px + var(--safe-top)) 14px 8px;
+  display: flex; align-items: center; gap: 10px; min-height: 52px;
+}
+#topbar h1 { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+#topbar .spacer { flex: 1; }
+#netBadge { font-size: 11px; padding: 3px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+#netBadge.off { background: #eee; color: var(--muted); }
+
+main { padding: 14px 14px calc(70px + var(--safe-bottom)); max-width: 860px; margin: 0 auto; }
+
+#tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+  display: flex; background: var(--surface); border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bottom);
+}
+#tabbar button {
+  flex: 1; padding: 10px 4px 8px; font-size: 11px; color: var(--muted);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+#tabbar button .ico { font-size: 20px; line-height: 1; }
+#tabbar button.active { color: var(--accent); font-weight: 600; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---------- Common ---------- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.card h2 { font-size: 15px; margin-bottom: 10px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn {
+  background: var(--accent); color: #fff; border-radius: 8px; padding: 9px 16px;
+  font-weight: 600; font-size: 14px;
+}
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn.subtle { background: var(--accent-soft); color: var(--accent); }
+.btn.danger { background: var(--danger); }
+.btn.sm { padding: 5px 10px; font-size: 13px; }
+input[type=text], input[type=search], textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); font-size: 15px;
+}
+input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.muted { color: var(--muted); font-size: 13px; }
+.empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
+.chips { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.chip { padding: 5px 13px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--muted); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---------- Song list ---------- */
+.songlist { display: flex; flex-direction: column; gap: 6px; }
+.songitem {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.songitem:active { background: var(--accent-soft); }
+.songitem .info { flex: 1; min-width: 0; }
+.songitem .t { font-weight: 600; font-size: 15px; }
+.songitem .a { color: var(--muted); font-size: 13px; }
+.songitem .k { font-size: 12px; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+.songitem .snip { font-family: ui-monospace, "Courier New", monospace; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.songitem .snip mark { background: #ffe9a8; border-radius: 2px; }
+
+/* ---------- Viewer ---------- */
+#viewer { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: none; flex-direction: column; }
+#viewer.open { display: flex; }
+#vhead {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: calc(6px + var(--safe-top)) 10px 6px;
+}
+#vhead .l1 { display: flex; align-items: center; gap: 8px; }
+#vhead .titles { flex: 1; min-width: 0; }
+#vhead .vt { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#vhead .va { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#vhead .iconbtn { font-size: 20px; padding: 8px; border-radius: 8px; color: var(--muted); }
+#vhead .iconbtn:active { background: var(--accent-soft); }
+#vtools {
+  display: flex; align-items: center; gap: 6px; padding: 6px 2px 2px; flex-wrap: wrap;
+}
+.toolgroup {
+  display: flex; align-items: center; gap: 2px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; padding: 2px;
+}
+.toolgroup button { padding: 6px 11px; font-size: 15px; font-weight: 700; border-radius: 6px; color: var(--accent); }
+.toolgroup button:active { background: var(--accent-soft); }
+.toolgroup .val { font-size: 12.5px; font-weight: 700; min-width: 44px; text-align: center; color: var(--text); }
+#vscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
+#vpre {
+  font-family: "Courier New", Courier, ui-monospace, monospace;
+  padding: 16px 14px calc(40px + var(--safe-bottom));
+  line-height: 1.35; white-space: pre;
+}
+#vpre b.ch { color: var(--chord); font-weight: 700; }
+#vnav {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 8px 14px calc(8px + var(--safe-bottom));
+}
+#vnav .pos { font-size: 13px; color: var(--muted); }
+
+/* ---------- Modal ---------- */
+.modal-bg { position: fixed; inset: 0; z-index: 80; background: rgba(30,25,18,.45); display: none; align-items: flex-end; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 14px 14px 0 0; width: 100%; max-width: 640px;
+  max-height: 86vh; overflow: auto; padding: 18px 16px calc(18px + var(--safe-bottom));
+}
+.modal h3 { font-size: 16px; margin-bottom: 12px; }
+.modal label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+.modal textarea { font-family: ui-monospace, "Courier New", monospace; font-size: 12px; white-space: pre; min-height: 200px; }
+
+/* ---------- Import ---------- */
+.result-artist { border-left: 3px solid var(--accent); }
+#importProgress .bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
+#importProgress .fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; }
+.checkrow { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.checkrow input { width: 20px; height: 20px; accent-color: var(--accent); }
+.checkrow .done { color: var(--ok); font-size: 12px; margin-left: auto; }
+#settings textarea { font-family: ui-monospace, monospace; font-size: 12px; min-height: 90px; white-space: pre; }
+details { margin-top: 10px; }
+details summary { cursor: pointer; font-size: 14px; color: var(--accent); font-weight: 600; }
+details pre { background: var(--tab-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 11px; overflow: auto; margin-top: 8px; }
+.plitem { display: flex; align-items: center; gap: 6px; }
+.plitem .ordbtns { display: flex; flex-direction: column; }
+.plitem .ordbtns button { padding: 2px 10px; font-size: 13px; color: var(--muted); }
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + var(--safe-bottom));
+  background: #2b2a27; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 14px;
+  z-index: 100; opacity: 0; pointer-events: none; transition: opacity .25s; max-width: 90vw; text-align: center;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>🎸 Cifras</h1>
+  <div class="spacer"></div>
+  <span id="netBadge">online</span>
+</div>
+
+<main>
+  <!-- ================= BIBLIOTECA ================= -->
+  <section id="view-library" class="view active">
+    <input type="search" id="libSearch" placeholder="Buscar na biblioteca… (título, artista ou letra)" autocomplete="off">
+    <div class="chips" id="libChips">
+      <button class="chip active" data-f="all">Tudo</button>
+      <button class="chip" data-f="title">Título</button>
+      <button class="chip" data-f="artist">Artista</button>
+      <button class="chip" data-f="lyrics">Letra</button>
+    </div>
+    <div id="libList" class="songlist"></div>
+    <div id="libEmpty" class="empty" style="display:none">
+      Sua biblioteca está vazia.<br>Use a aba <b>Importar</b> para baixar cifras do CifraClub.
+    </div>
+  </section>
+
+  <!-- ================= PLAYLISTS ================= -->
+  <section id="view-playlists" class="view">
+    <div class="row" style="margin-bottom:12px">
+      <input type="text" id="plName" placeholder="Nome da nova playlist" style="flex:1">
+      <button class="btn" id="plCreate">Criar</button>
+    </div>
+    <div id="plList"></div>
+    <div id="plEmpty" class="empty" style="display:none">Nenhuma playlist ainda.</div>
+  </section>
+
+  <!-- ================= IMPORTAR ================= -->
+  <section id="view-import" class="view">
+    <div class="card">
+      <h2>Buscar no CifraClub</h2>
+      <div class="row">
+        <input type="search" id="ccSearch" placeholder="Música ou artista…" style="flex:1" autocomplete="off">
+        <button class="btn" id="ccSearchBtn">Buscar</button>
+      </div>
+      <div id="ccResults" class="songlist" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="artistPanel" style="display:none">
+      <h2 id="artistPanelTitle">Músicas do artista</h2>
+      <div class="row" style="margin-bottom:6px">
+        <button class="btn sm ghost" id="artistSelAll">Marcar todas</button>
+        <button class="btn sm ghost" id="artistSelNone">Desmarcar</button>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn sm" id="artistImportBtn">Importar marcadas</button>
+      </div>
+      <div id="artistSongs"></div>
+    </div>
+
+    <div class="card" id="importProgress" style="display:none">
+      <h2>Importando…</h2>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="muted" id="importStatus"></div>
+      <button class="btn sm danger" id="importCancel" style="margin-top:8px">Cancelar</button>
+    </div>
+
+    <div class="card">
+      <h2>Importar por URL</h2>
+      <div class="row">
+        <input type="text" id="urlInput" placeholder="https://www.cifraclub.com.br/artista/musica/" style="flex:1">
+        <button class="btn" id="urlImportBtn">Importar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Colar manualmente</h2>
+      <p class="muted" style="margin-bottom:8px">Cole o texto da cifra (acordes em linhas acima da letra) ou o HTML de uma página do CifraClub. Funciona 100% offline.</p>
+      <textarea id="pasteInput" style="font-family:ui-monospace,monospace;font-size:12px;white-space:pre;min-height:140px" placeholder="[Intro] C  Am  F  G&#10;&#10;        C&#10;Primeira linha da letra…"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="pasteImportBtn">Importar texto</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AJUSTES ================= -->
+  <section id="view-settings" class="view" >
+    <div id="settings">
+      <div class="card">
+        <h2>Backup</h2>
+        <div class="row">
+          <button class="btn" id="exportBtn">Exportar biblioteca (JSON)</button>
+          <button class="btn ghost" id="importBackupBtn">Restaurar backup</button>
+          <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none">
+        </div>
+        <p class="muted" style="margin-top:8px" id="storageInfo"></p>
+      </div>
+
+      <div class="card">
+        <h2>Proxies CORS (download das cifras)</h2>
+        <p class="muted" style="margin-bottom:8px">
+          O navegador não pode acessar o cifraclub.com.br diretamente (bloqueio CORS), então o download passa por um destes proxies, testados em ordem. Um por linha; <code>{url}</code> = endereço codificado, <code>{raw}</code> = endereço puro.
+        </p>
+        <textarea id="proxyList"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="proxySave">Salvar</button>
+          <button class="btn sm ghost" id="proxyTest">Testar proxies</button>
+          <button class="btn sm ghost" id="proxyReset">Padrão</button>
+        </div>
+        <div class="muted" id="proxyTestResult" style="margin-top:8px;white-space:pre-line"></div>
+        <details>
+          <summary>Proxy próprio (recomendado — Cloudflare Worker grátis)</summary>
+          <p class="muted" style="margin-top:6px">Os proxies públicos podem ficar instáveis. Para ter um proxy só seu, crie um Worker gratuito em <b>workers.cloudflare.com</b> com o código abaixo e adicione <code>https://SEU-WORKER.workers.dev/?url={url}</code> na primeira linha da lista acima.</p>
+          <pre>export default {
+  async fetch(req) {
+    const url = new URL(req.url).searchParams.get("url");
+    if (!url || !/^https:\/\/(www\.)?cifraclub\.com\.br\//.test(url))
+      return new Response("URL inválida", { status: 400 });
+    const r = await fetch(url, { headers: { "User-Agent": req.headers.get("User-Agent") || "Mozilla/5.0" } });
+    const h = new Headers(r.headers);
+    h.set("Access-Control-Allow-Origin", "*");
+    h.delete("Content-Security-Policy");
+    return new Response(r.body, { status: r.status, headers: h });
+  }
+};</pre>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Como usar no iPad</h2>
+        <p class="muted">
+          1. Hospede estes arquivos em qualquer site estático (GitHub Pages, Netlify…) e abra no Safari — depois toque em <b>Compartilhar → Adicionar à Tela de Início</b>. O app passa a abrir e funcionar <b>totalmente offline</b> (as cifras ficam salvas no próprio aparelho).<br><br>
+          2. Alternativa sem hospedagem: copie o <code>index.html</code> para um app leitor de HTML que suporte JavaScript e armazenamento (ex.: Koder, Documents). A biblioteca fica salva enquanto o app mantiver os dados do site.<br><br>
+          Em ambos os casos, faça <b>backups periódicos</b> pelo botão acima.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Zona de perigo</h2>
+        <button class="btn danger" id="wipeBtn">Apagar todas as cifras e playlists</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav id="tabbar">
+  <button data-view="library" class="active"><span class="ico">📚</span>Biblioteca</button>
+  <button data-view="playlists"><span class="ico">🎵</span>Playlists</button>
+  <button data-view="import"><span class="ico">⬇️</span>Importar</button>
+  <button data-view="settings"><span class="ico">⚙️</span>Ajustes</button>
+</nav>
+
+<!-- ================= VISUALIZADOR ================= -->
+<div id="viewer">
+  <div id="vhead">
+    <div class="l1">
+      <button class="iconbtn" id="vBack">←</button>
+      <div class="titles">
+        <div class="vt" id="vTitle"></div>
+        <div class="va" id="vArtist"></div>
+      </div>
+      <button class="iconbtn" id="vAddPl" title="Adicionar à playlist">➕</button>
+      <button class="iconbtn" id="vEdit" title="Editar">✏️</button>
+      <button class="iconbtn" id="vDelete" title="Excluir">🗑️</button>
+    </div>
+    <div id="vtools">
+      <div class="toolgroup" title="Tom">
+        <button id="vTransDown">♭</button>
+        <span class="val" id="vKey">—</span>
+        <button id="vTransUp">♯</button>
+        <button id="vTransReset" style="font-size:12px" title="Tom original">↺</button>
+      </div>
+      <div class="toolgroup" title="Fonte">
+        <button id="vFontDown">A−</button>
+        <span class="val" id="vFontVal"></span>
+        <button id="vFontUp">A+</button>
+      </div>
+      <span class="muted" id="vCapo"></span>
+    </div>
+  </div>
+  <div id="vscroll"><div id="vpre"></div></div>
+  <div id="vnav" style="display:none">
+    <button class="btn sm subtle" id="vPrev">← Anterior</button>
+    <span class="pos" id="vPos"></span>
+    <button class="btn sm subtle" id="vNext">Próxima →</button>
+  </div>
+</div>
+
+<!-- ================= MODAIS ================= -->
+<div class="modal-bg" id="modalEdit">
+  <div class="modal">
+    <h3>Editar cifra</h3>
+    <label>Título</label><input type="text" id="eTitle">
+    <label>Artista</label><input type="text" id="eArtist">
+    <label>Tom original</label><input type="text" id="eKey" style="width:90px">
+    <label>Conteúdo — acordes entre &lt; &gt;, ex.: &lt;Am7&gt;</label>
+    <textarea id="eContent" spellcheck="false"></textarea>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="eSave">Salvar</button>
+      <button class="btn ghost" id="eCancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalPl">
+  <div class="modal">
+    <h3>Adicionar à playlist</h3>
+    <div id="plPick"></div>
+    <div class="row" style="margin-top:14px">
+      <input type="text" id="plPickNew" placeholder="…ou nova playlist" style="flex:1">
+      <button class="btn sm" id="plPickCreate">Criar e adicionar</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" id="plPickClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+ * Cifras — app de cifras offline com importação do CifraClub
+ * Arquivo único: roda hospedado (PWA) ou aberto em leitor de HTML.
+ * =================================================================== */
+
+/* ------------------------- utilidades ------------------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const CH_OPEN = '\u0011', CH_CLOSE = '\u0012'; // delimitadores internos de acorde
+const TOKEN_RE = /\u0011([^\u0012]*)\u0012/g;
+
+const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.floor(Math.random()*1e9));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function toast(msg, ms=2600) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ------------------------- banco (IndexedDB) ------------------------- */
+const DB_NAME = 'cifras-db', DB_VER = 1;
+let _db = null;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open(DB_NAME, DB_VER);
+    rq.onupgradeneeded = () => {
+      const db = rq.result;
+      if (!db.objectStoreNames.contains('songs')) db.createObjectStore('songs', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+    };
+    rq.onsuccess = () => { _db = rq.result; res(_db); };
+    rq.onerror = () => rej(rq.error);
+  });
+}
+function tx(store, mode, fn) {
+  return new Promise((res, rej) => {
+    const t = _db.transaction(store, mode);
+    const s = t.objectStore(store);
+    const out = fn(s);
+    t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
+    t.onerror = () => rej(t.error);
+  });
+}
+const dbAll = store => new Promise((res, rej) => {
+  const rq = _db.transaction(store).objectStore(store).getAll();
+  rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+});
+const dbPut = (store, obj) => tx(store, 'readwrite', s => s.put(obj));
+const dbDel = (store, id) => tx(store, 'readwrite', s => s.delete(id));
+const dbClear = store => tx(store, 'readwrite', s => s.clear());
+
+async function getSetting(key, def) {
+  const v = await new Promise((res, rej) => {
+    const rq = _db.transaction('settings').objectStore('settings').get(key);
+    rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+  });
+  return v ? v.value : def;
+}
+const setSetting = (key, value) => dbPut('settings', { key, value });
+
+/* cache em memória */
+let SONGS = [];      // [{id,title,artist,artistSlug,songSlug,originalKey,capo,transpose,content,createdAt}]
+let PLAYLISTS = [];  // [{id,name,songIds:[]}]
+
+async function reloadCache() {
+  SONGS = (await dbAll('songs')).sort((a,b) =>
+    norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title)));
+  PLAYLISTS = (await dbAll('playlists')).sort((a,b) => norm(a.name).localeCompare(norm(b.name)));
+}
+
+/* ------------------------- motor de acordes ------------------------- */
+const NOTE_IDX = { 'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'Fb':4,'E#':5,'F':5,'F#':6,'Gb':6,
+                   'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11,'Cb':11,'B#':0 };
+const SHARP_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const FLAT_CLASSES = new Set([1,3,8,10]); // Db, Eb, Ab, Bb — F#(6) fica com sustenido
+
+function transposeNote(note, n, preferFlat) {
+  const idx = NOTE_IDX[note];
+  if (idx === undefined) return note;
+  const ni = ((idx + n) % 12 + 12) % 12;
+  return preferFlat ? FLAT_NAMES[ni] : SHARP_NAMES[ni];
+}
+/* transpõe todas as notas dentro de um símbolo de acorde (raiz, baixo etc.) */
+function transposeChord(chord, n, preferFlat) {
+  if (!n) return chord;
+  return chord.replace(/([A-G])(#|b)?/g, (m, l, acc) => transposeNote(l + (acc||''), n, preferFlat));
+}
+/* decide grafia (bemol/sustenido) a partir do tom original transposto */
+function preferFlatFor(originalKey, n) {
+  const m = /^([A-G])(#|b)?/.exec(originalKey || 'C');
+  const idx = m ? NOTE_IDX[m[1] + (m[2]||'')] : 0;
+  return FLAT_CLASSES.has(((idx + n) % 12 + 12) % 12);
+}
+/* Transpõe uma linha compensando a largura dos acordes para preservar
+ * o alinhamento em colunas (posição do acorde sobre a letra). */
+function transposeLine(line, n, preferFlat) {
+  if (!n || line.indexOf(CH_OPEN) === -1) return line;
+  const parts = line.split(/(\u0011[^\u0012]*\u0012)/);
+  let out = '', debt = 0; // debt>0: acordes cresceram, remover espaços; debt<0: adicionar
+  for (const part of parts) {
+    if (part.charCodeAt(0) === 0x11) {
+      const orig = part.slice(1, -1);
+      const t = transposeChord(orig, n, preferFlat);
+      debt += t.length - orig.length;
+      out += CH_OPEN + t + CH_CLOSE;
+    } else {
+      let p = part;
+      if (debt > 0) {
+        const run = /^ +/.exec(p);
+        if (run && run[0].length > 1) {
+          const rm = Math.min(debt, run[0].length - 1);
+          p = p.slice(rm);
+          debt -= rm;
+        }
+      } else if (debt < 0 && p.startsWith(' ')) {
+        p = ' '.repeat(-debt) + p;
+        debt = 0;
+      }
+      out += p;
+    }
+  }
+  return out;
+}
+function transposeContent(content, n, originalKey) {
+  if (!n) return content;
+  const pf = preferFlatFor(originalKey, n);
+  return content.split('\n').map(l => transposeLine(l, n, pf)).join('\n');
+}
+const CHORD_TOKEN_RE = /^[A-G](##?|bb?)?([^\s\/]*)(\/[A-G](##?|bb?)?)?$/;
+function isChordSymbol(s) {
+  return CHORD_TOKEN_RE.test(s) && s.length <= 12;
+}
+/* heurística: a linha contém apenas acordes/espaços/rótulos curtos? */
+function isChordLine(line) {
+  const t = line.trim();
+  if (!t) return false;
+  const words = t.replace(/\[[^\]]*\]/g, ' ').replace(/\((\d+x|x\d+)\)/gi, ' ').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return false;
+  return words.every(isChordSymbol);
+}
+/* marca acordes com os delimitadores internos em texto puro */
+function tokenizePlainText(text) {
+  return text.split('\n').map(line => {
+    if (!isChordLine(line)) return line;
+    return line.replace(/\S+/g, w => isChordSymbol(w) ? CH_OPEN + w + CH_CLOSE : w);
+  }).join('\n');
+}
+
+/* ------------------------- CifraClub: parse ------------------------- */
+/* serializa um <pre> preservando texto e marcando <b> como acorde */
+function preToTokens(node) {
+  let out = '';
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) out += child.nodeValue;
+    else if (child.nodeType === Node.ELEMENT_NODE) {
+      if (child.tagName === 'B') out += CH_OPEN + child.textContent + CH_CLOSE;
+      else if (child.tagName === 'BR') out += '\n';
+      else out += preToTokens(child);
+    }
+  }
+  return out;
+}
+function parseCifraHTML(html, sourceUrl) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script, style').forEach(e => e.remove());
+
+  const title = (doc.querySelector('.js-title_color')?.textContent
+    || doc.querySelector('h1')?.textContent || '').trim() || 'Sem título';
+  const artist = (doc.querySelector('.js-artist_color')?.textContent
+    || doc.querySelector('h2')?.textContent || '').trim() || 'Desconhecido';
+
+  let key = '';
+  const kText = /tom:\s*([A-G](?:#|b)?m?)\b/i.exec(doc.body.textContent);
+  if (kText) key = kText[1];
+  let capo = '';
+  const cText = /capotraste na (\d+ª casa)/i.exec(doc.body.textContent);
+  if (cText) capo = 'Capotraste na ' + cText[1];
+
+  const pre = doc.querySelector('pre');
+  if (!pre) throw new Error('Página sem conteúdo de cifra (<pre> não encontrado)');
+  let content = preToTokens(pre).replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').replace(/\s+$/, '');
+
+  if (!key) { // fallback: primeiro acorde
+    const first = TOKEN_RE.exec(content);
+    TOKEN_RE.lastIndex = 0;
+    if (first) key = first[1].replace(/^([A-G](?:#|b)?m?).*/, '$1');
+  }
+
+  let artistSlug = '', songSlug = '';
+  if (sourceUrl) {
+    const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)/.exec(sourceUrl);
+    if (m) { artistSlug = m[1]; songSlug = m[2]; }
+  }
+  return { title, artist, originalKey: key || 'C', capo, content, artistSlug, songSlug };
+}
+function parseArtistPage(html, slug) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const artistName = (doc.querySelector('h1')?.textContent || slug).trim();
+  const seen = new Set(), songs = [];
+  for (const a of doc.querySelectorAll(`a[href^="/${slug}/"]`)) {
+    const href = (a.getAttribute('href') || '').split(/[?#]/)[0];
+    const parts = href.split('/').filter(Boolean);
+    if (parts.length !== 2 || /\.(html|php)$/.test(parts[1]) || seen.has(href)) continue;
+    seen.add(href);
+    let title = '';
+    const img = a.querySelector('img[alt]');
+    if (img) {
+      const m = /m[uú]sica "(.+?)"/i.exec(img.getAttribute('alt') || '');
+      if (m) title = m[1];
+    }
+    if (!title) title = (a.textContent || '').trim().replace(/^\d{1,3}(?=\D)/, '');
+    if (title) songs.push({ title, artistSlug: slug, songSlug: parts[1] });
+  }
+  return { artistName, songs };
+}
+
+/* ------------------------- CifraClub: rede ------------------------- */
+const DEFAULT_PROXIES = [
+  'https://api.allorigins.win/raw?url={url}',
+  'https://api.codetabs.com/v1/proxy?quest={url}',
+  'https://corsproxy.io/?url={url}',
+];
+let PROXIES = DEFAULT_PROXIES.slice();
+
+function decodeBody(buf) {
+  // páginas antigas do CifraClub usavam ISO-8859-1; detectar pelo meta charset
+  const head = new TextDecoder('latin1').decode(buf.slice(0, 2048));
+  const m = /charset\s*=\s*["']?([\w-]+)/i.exec(head);
+  const cs = (m ? m[1] : 'utf-8').toLowerCase();
+  try { return new TextDecoder(cs).decode(buf); }
+  catch { return new TextDecoder('utf-8').decode(buf); }
+}
+async function fetchText(url, timeoutMs = 25000) {
+  const ctl = new AbortController();
+  const h = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return decodeBody(await res.arrayBuffer());
+  } finally { clearTimeout(h); }
+}
+/* baixa uma URL do cifraclub tentando direto e depois cada proxy */
+async function fetchCifraClub(url, validate) {
+  const attempts = ['{raw}', ...PROXIES];
+  let lastErr = null;
+  for (const tpl of attempts) {
+    const target = tpl.replace('{url}', encodeURIComponent(url)).replace('{raw}', url);
+    try {
+      const text = await fetchText(target);
+      if (validate && !validate(text)) throw new Error('resposta inválida');
+      if (tpl !== '{raw}') { // memoriza proxy que funcionou
+        PROXIES = [tpl, ...PROXIES.filter(p => p !== tpl)];
+      }
+      return text;
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error('Não foi possível baixar (todos os proxies falharam). Último erro: ' + (lastErr?.message || lastErr));
+}
+const songUrl = (aSlug, sSlug) => `https://www.cifraclub.com.br/${aSlug}/${sSlug}/imprimir.html`;
+const artistUrl = slug => `https://www.cifraclub.com.br/${slug}/musicas.html`;
+
+/* busca (API pública do CifraClub, com CORS liberado — funciona sem proxy) */
+async function ccSearch(q) {
+  const raw = await fetchText('https://solr.sscdn.co/cc/h2/?q=' + encodeURIComponent(q), 12000);
+  const json = JSON.parse(raw.replace(/^[^(]*\(/, '').replace(/\)\s*$/, ''));
+  return (json.response?.docs || []).map(d => ({
+    type: d.t === '1' ? 'artist' : 'song',
+    title: d.m || d.a, artist: d.a, artistSlug: d.d, songSlug: d.u,
+  })).filter(d => d.artistSlug);
+}
+
+/* ------------------------- salvar música ------------------------- */
+function findExisting(parsed) {
+  return SONGS.find(s =>
+    (parsed.artistSlug && parsed.songSlug && s.artistSlug === parsed.artistSlug && s.songSlug === parsed.songSlug) ||
+    (norm(s.title) === norm(parsed.title) && norm(s.artist) === norm(parsed.artist)));
+}
+async function saveSong(parsed) {
+  const existing = findExisting(parsed);
+  const song = {
+    id: existing ? existing.id : uid(),
+    title: parsed.title, artist: parsed.artist,
+    artistSlug: parsed.artistSlug || '', songSlug: parsed.songSlug || '',
+    originalKey: parsed.originalKey || 'C', capo: parsed.capo || '',
+    transpose: existing ? (existing.transpose || 0) : 0,
+    content: parsed.content,
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now(),
+  };
+  await dbPut('songs', song);
+  await reloadCache();
+  return { song, updated: !!existing };
+}
+
+/* ------------------------- navegação por abas ------------------------- */
+function showView(name) {
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  if (name === 'library') renderLibrary();
+  if (name === 'playlists') renderPlaylists();
+  if (name === 'settings') renderStorageInfo();
+}
+$$('#tabbar button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+/* ------------------------- biblioteca / busca local ------------------------- */
+let libFilter = 'all';
+$('#libChips').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  libFilter = c.dataset.f;
+  $$('#libChips .chip').forEach(x => x.classList.toggle('active', x === c));
+  renderLibrary();
+});
+$('#libSearch').addEventListener('input', () => renderLibrary());
+
+function searchSongs(q, filter) {
+  if (!q) return SONGS.map(s => ({ s }));
+  const terms = norm(q).split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const s of SONGS) {
+    const nt = norm(s.title), na = norm(s.artist);
+    const lyrics = filter === 'all' || filter === 'lyrics'
+      ? norm(s.content.replace(TOKEN_RE, '')) : '';
+    let score = 0, snip = '';
+    const okAll = terms.every(t => {
+      if ((filter === 'all' || filter === 'title') && nt.includes(t)) { score += 3; return true; }
+      if ((filter === 'all' || filter === 'artist') && na.includes(t)) { score += 2; return true; }
+      if (lyrics && lyrics.includes(t)) { score += 1; return true; }
+      return false;
+    });
+    if (!okAll) continue;
+    if (score <= terms.length && lyrics) { // match veio da letra → mostrar trecho
+      const i = lyrics.indexOf(terms[0]);
+      if (i >= 0) {
+        const plain = s.content.replace(TOKEN_RE, '');
+        snip = plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
+      }
+    }
+    out.push({ s, score, snip });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return out;
+}
+function renderLibrary() {
+  const q = $('#libSearch').value.trim();
+  const results = searchSongs(q, libFilter);
+  const list = $('#libList');
+  list.innerHTML = '';
+  $('#libEmpty').style.display = (!SONGS.length) ? '' : 'none';
+  if (!results.length && SONGS.length) {
+    list.innerHTML = '<div class="empty">Nada encontrado.</div>';
+    return;
+  }
+  for (const { s, snip } of results) {
+    const el = document.createElement('div');
+    el.className = 'songitem';
+    el.innerHTML = `<div class="info">
+        <div class="t">${escHtml(s.title)}</div>
+        <div class="a">${escHtml(s.artist)}</div>
+        ${snip ? `<div class="snip">…${escHtml(snip)}…</div>` : ''}
+      </div><span class="k">${escHtml(currentKey(s))}</span>`;
+    el.addEventListener('click', () => openViewer(s.id));
+    list.appendChild(el);
+  }
+}
+
+/* ------------------------- visualizador ------------------------- */
+let vSongId = null;
+let vContext = null; // {playlistId, index} quando aberto por playlist
+let fontSize = 14;
+
+function currentKey(s) {
+  const n = s.transpose || 0;
+  return n ? transposeChord(s.originalKey, n, preferFlatFor(s.originalKey, n)) : s.originalKey;
+}
+function openViewer(songId, context) {
+  vSongId = songId; vContext = context || null;
+  renderViewer();
+  $('#viewer').classList.add('open');
+  $('#vscroll').scrollTop = 0;
+}
+function closeViewer() {
+  $('#viewer').classList.remove('open');
+  vSongId = null; vContext = null;
+  renderLibrary(); renderPlaylists();
+}
+function vSong() { return SONGS.find(s => s.id === vSongId); }
+
+function renderViewer() {
+  const s = vSong(); if (!s) return closeViewer();
+  $('#vTitle').textContent = s.title;
+  $('#vArtist').textContent = s.artist;
+  const n = s.transpose || 0;
+  $('#vKey').textContent = currentKey(s) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '');
+  $('#vCapo').textContent = s.capo || '';
+  $('#vFontVal').textContent = fontSize + 'px';
+  const content = transposeContent(s.content, n, s.originalKey);
+  $('#vpre').style.fontSize = fontSize + 'px';
+  $('#vpre').innerHTML = escHtml(content).replace(TOKEN_RE, '<b class="ch">$1</b>');
+
+  const nav = $('#vnav');
+  if (vContext) {
+    const pl = PLAYLISTS.find(p => p.id === vContext.playlistId);
+    if (pl) {
+      nav.style.display = '';
+      $('#vPos').textContent = `${vContext.index + 1} / ${pl.songIds.length} — ${pl.name}`;
+      $('#vPrev').disabled = vContext.index === 0;
+      $('#vNext').disabled = vContext.index >= pl.songIds.length - 1;
+    } else nav.style.display = 'none';
+  } else nav.style.display = 'none';
+}
+async function setTranspose(delta, reset) {
+  const s = vSong(); if (!s) return;
+  s.transpose = reset ? 0 : Math.max(-11, Math.min(11, (s.transpose || 0) + delta));
+  await dbPut('songs', s);
+  renderViewer();
+}
+$('#vBack').addEventListener('click', closeViewer);
+$('#vTransUp').addEventListener('click', () => setTranspose(1));
+$('#vTransDown').addEventListener('click', () => setTranspose(-1));
+$('#vTransReset').addEventListener('click', () => setTranspose(0, true));
+$('#vFontUp').addEventListener('click', () => setFont(1));
+$('#vFontDown').addEventListener('click', () => setFont(-1));
+async function setFont(d) {
+  fontSize = Math.max(9, Math.min(32, fontSize + d));
+  await setSetting('fontSize', fontSize);
+  renderViewer();
+}
+$('#vPrev').addEventListener('click', () => stepPlaylist(-1));
+$('#vNext').addEventListener('click', () => stepPlaylist(1));
+function stepPlaylist(d) {
+  if (!vContext) return;
+  const pl = PLAYLISTS.find(p => p.id === vContext.playlistId); if (!pl) return;
+  const ni = vContext.index + d;
+  if (ni < 0 || ni >= pl.songIds.length) return;
+  openViewer(pl.songIds[ni], { playlistId: pl.id, index: ni });
+}
+$('#vDelete').addEventListener('click', async () => {
+  const s = vSong(); if (!s) return;
+  if (!confirm(`Excluir "${s.title}" da biblioteca?`)) return;
+  await dbDel('songs', s.id);
+  for (const p of PLAYLISTS) {
+    if (p.songIds.includes(s.id)) {
+      p.songIds = p.songIds.filter(id => id !== s.id);
+      await dbPut('playlists', p);
+    }
+  }
+  await reloadCache();
+  toast('Cifra excluída');
+  closeViewer();
+});
+
+/* ------------------------- edição ------------------------- */
+$('#vEdit').addEventListener('click', () => {
+  const s = vSong(); if (!s) return;
+  $('#eTitle').value = s.title;
+  $('#eArtist').value = s.artist;
+  $('#eKey').value = s.originalKey;
+  $('#eContent').value = s.content.replace(TOKEN_RE, '<$1>');
+  $('#modalEdit').classList.add('open');
+});
+$('#eCancel').addEventListener('click', () => $('#modalEdit').classList.remove('open'));
+$('#eSave').addEventListener('click', async () => {
+  const s = vSong(); if (!s) return;
+  s.title = $('#eTitle').value.trim() || s.title;
+  s.artist = $('#eArtist').value.trim() || s.artist;
+  s.originalKey = $('#eKey').value.trim() || s.originalKey;
+  s.content = $('#eContent').value
+    .replace(/<([A-G][^>\n]{0,10})>/g, (m, c) => isChordSymbol(c) ? CH_OPEN + c + CH_CLOSE : m);
+  s.updatedAt = Date.now();
+  await dbPut('songs', s);
+  await reloadCache();
+  $('#modalEdit').classList.remove('open');
+  renderViewer();
+  toast('Salvo');
+});
+
+/* ------------------------- playlists ------------------------- */
+$('#plCreate').addEventListener('click', async () => {
+  const name = $('#plName').value.trim();
+  if (!name) return toast('Dê um nome à playlist');
+  await dbPut('playlists', { id: uid(), name, songIds: [], createdAt: Date.now() });
+  $('#plName').value = '';
+  await reloadCache();
+  renderPlaylists();
+});
+function renderPlaylists() {
+  const wrap = $('#plList');
+  wrap.innerHTML = '';
+  $('#plEmpty').style.display = PLAYLISTS.length ? 'none' : '';
+  for (const pl of PLAYLISTS) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const head = document.createElement('div');
+    head.className = 'row';
+    head.innerHTML = `<b style="flex:1">${escHtml(pl.name)}</b>
+      <span class="muted">${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}</span>
+      <button class="btn sm subtle" data-act="play" ${pl.songIds.length ? '' : 'disabled'}>▶ Tocar</button>
+      <button class="btn sm ghost" data-act="ren">Renomear</button>
+      <button class="btn sm danger" data-act="del">Excluir</button>`;
+    card.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'songlist';
+    list.style.marginTop = '10px';
+    pl.songIds.forEach((sid, i) => {
+      const s = SONGS.find(x => x.id === sid);
+      if (!s) return;
+      const item = document.createElement('div');
+      item.className = 'songitem plitem';
+      item.innerHTML = `<div class="ordbtns">
+          <button data-mv="-1" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button data-mv="1" ${i === pl.songIds.length - 1 ? 'disabled' : ''}>▼</button>
+        </div>
+        <div class="info"><div class="t">${escHtml(s.title)}</div><div class="a">${escHtml(s.artist)}</div></div>
+        <span class="k">${escHtml(currentKey(s))}</span>
+        <button class="iconbtn" data-rm="1" style="color:var(--danger);padding:6px">✕</button>`;
+      item.addEventListener('click', e => {
+        const mv = e.target.closest('[data-mv]');
+        const rm = e.target.closest('[data-rm]');
+        if (mv) { movePlSong(pl, i, +mv.dataset.mv); e.stopPropagation(); return; }
+        if (rm) { removePlSong(pl, i); e.stopPropagation(); return; }
+        openViewer(sid, { playlistId: pl.id, index: i });
+      });
+      list.appendChild(item);
+    });
+    card.appendChild(list);
+    head.addEventListener('click', async e => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (!act) return;
+      if (act === 'play') openViewer(pl.songIds[0], { playlistId: pl.id, index: 0 });
+      if (act === 'ren') {
+        const name = prompt('Novo nome:', pl.name);
+        if (name?.trim()) { pl.name = name.trim(); await dbPut('playlists', pl); await reloadCache(); renderPlaylists(); }
+      }
+      if (act === 'del' && confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) {
+        await dbDel('playlists', pl.id); await reloadCache(); renderPlaylists();
+      }
+    });
+    wrap.appendChild(card);
+  }
+}
+async function movePlSong(pl, i, d) {
+  const j = i + d;
+  if (j < 0 || j >= pl.songIds.length) return;
+  [pl.songIds[i], pl.songIds[j]] = [pl.songIds[j], pl.songIds[i]];
+  await dbPut('playlists', pl);
+  await reloadCache();
+  renderPlaylists();
+}
+async function removePlSong(pl, i) {
+  pl.songIds.splice(i, 1);
+  await dbPut('playlists', pl);
+  await reloadCache();
+  renderPlaylists();
+}
+/* adicionar à playlist (do visualizador) */
+$('#vAddPl').addEventListener('click', () => {
+  const wrap = $('#plPick');
+  wrap.innerHTML = PLAYLISTS.length ? '' : '<p class="muted">Nenhuma playlist ainda.</p>';
+  for (const pl of PLAYLISTS) {
+    const has = pl.songIds.includes(vSongId);
+    const b = document.createElement('button');
+    b.className = 'btn sm ' + (has ? 'subtle' : 'ghost');
+    b.style.margin = '3px';
+    b.textContent = (has ? '✓ ' : '') + pl.name;
+    b.addEventListener('click', async () => {
+      if (has) pl.songIds = pl.songIds.filter(id => id !== vSongId);
+      else pl.songIds.push(vSongId);
+      await dbPut('playlists', pl);
+      await reloadCache();
+      $('#vAddPl').click(); // re-render do modal
+    });
+    wrap.appendChild(b);
+  }
+  $('#modalPl').classList.add('open');
+});
+$('#plPickClose').addEventListener('click', () => $('#modalPl').classList.remove('open'));
+$('#plPickCreate').addEventListener('click', async () => {
+  const name = $('#plPickNew').value.trim();
+  if (!name) return;
+  await dbPut('playlists', { id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
+  $('#plPickNew').value = '';
+  await reloadCache();
+  $('#modalPl').classList.remove('open');
+  toast(`Adicionada a "${name}"`);
+});
+
+/* ------------------------- importação ------------------------- */
+let cancelImport = false;
+
+async function importOneSong(aSlug, sSlug) {
+  const html = await fetchCifraClub(songUrl(aSlug, sSlug), t => t.includes('<pre'));
+  const parsed = parseCifraHTML(html, `https://www.cifraclub.com.br/${aSlug}/${sSlug}/`);
+  return saveSong(parsed);
+}
+
+$('#ccSearchBtn').addEventListener('click', doCcSearch);
+$('#ccSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doCcSearch(); });
+async function doCcSearch() {
+  const q = $('#ccSearch').value.trim();
+  if (!q) return;
+  const box = $('#ccResults');
+  box.innerHTML = '<div class="muted">Buscando…</div>';
+  try {
+    const results = await ccSearch(q);
+    box.innerHTML = results.length ? '' : '<div class="muted">Nada encontrado.</div>';
+    for (const r of results.slice(0, 25)) {
+      const el = document.createElement('div');
+      el.className = 'songitem' + (r.type === 'artist' ? ' result-artist' : '');
+      const inLib = r.type === 'song' && SONGS.some(s => s.artistSlug === r.artistSlug && s.songSlug === r.songSlug);
+      el.innerHTML = r.type === 'artist'
+        ? `<div class="info"><div class="t">${escHtml(r.artist)}</div><div class="a">Artista — ver todas as músicas</div></div><span>👥</span>`
+        : `<div class="info"><div class="t">${escHtml(r.title)}</div><div class="a">${escHtml(r.artist)}</div></div>
+           <span class="${inLib ? 'muted' : 'k'}">${inLib ? 'na biblioteca' : 'baixar ⬇'}</span>`;
+      el.addEventListener('click', async () => {
+        if (r.type === 'artist') return loadArtistPanel(r.artistSlug, r.artist);
+        el.style.opacity = .5;
+        try {
+          const { song, updated } = await importOneSong(r.artistSlug, r.songSlug);
+          toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
+          renderLibrary();
+        } catch (err) { toast('Erro: ' + err.message, 4000); }
+        el.style.opacity = 1;
+      });
+      box.appendChild(el);
+    }
+  } catch (err) {
+    box.innerHTML = `<div class="muted">Erro na busca: ${escHtml(err.message)}</div>`;
+  }
+}
+
+let artistPanelSongs = [];
+async function loadArtistPanel(slug, name) {
+  const panel = $('#artistPanel');
+  panel.style.display = '';
+  $('#artistPanelTitle').textContent = `Músicas de ${name || slug} — carregando…`;
+  $('#artistSongs').innerHTML = '';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  try {
+    const html = await fetchCifraClub(artistUrl(slug), t => t.includes(`/${slug}/`));
+    const { artistName, songs } = parseArtistPage(html, slug);
+    artistPanelSongs = songs;
+    $('#artistPanelTitle').textContent = `Músicas de ${artistName} (${songs.length})`;
+    const box = $('#artistSongs');
+    songs.forEach((s, i) => {
+      const inLib = SONGS.some(x => x.artistSlug === s.artistSlug && x.songSlug === s.songSlug);
+      const row = document.createElement('label');
+      row.className = 'checkrow';
+      row.innerHTML = `<input type="checkbox" data-i="${i}" ${inLib ? '' : 'checked'}>
+        <span>${escHtml(s.title)}</span>${inLib ? '<span class="done">✓ na biblioteca</span>' : ''}`;
+      box.appendChild(row);
+    });
+  } catch (err) {
+    $('#artistPanelTitle').textContent = 'Erro ao carregar artista';
+    $('#artistSongs').innerHTML = `<p class="muted">${escHtml(err.message)}</p>`;
+  }
+}
+$('#artistSelAll').addEventListener('click', () => $$('#artistSongs input').forEach(c => c.checked = true));
+$('#artistSelNone').addEventListener('click', () => $$('#artistSongs input').forEach(c => c.checked = false));
+$('#artistImportBtn').addEventListener('click', async () => {
+  const picked = $$('#artistSongs input:checked').map(c => artistPanelSongs[+c.dataset.i]);
+  if (!picked.length) return toast('Nenhuma música marcada');
+  const prog = $('#importProgress');
+  prog.style.display = '';
+  prog.scrollIntoView({ behavior: 'smooth' });
+  cancelImport = false;
+  let ok = 0, fail = 0;
+  for (let i = 0; i < picked.length; i++) {
+    if (cancelImport) break;
+    const s = picked[i];
+    $('#importStatus').textContent = `${i + 1}/${picked.length}: ${s.title}`;
+    $('#importProgress .fill').style.width = Math.round(100 * i / picked.length) + '%';
+    try { await importOneSong(s.artistSlug, s.songSlug); ok++; }
+    catch (e) { fail++; console.warn('falha em', s.songSlug, e); }
+    await sleep(700); // gentileza com o servidor
+  }
+  $('#importProgress .fill').style.width = '100%';
+  $('#importStatus').textContent = `Concluído: ${ok} importadas${fail ? `, ${fail} falharam` : ''}${cancelImport ? ' (cancelado)' : ''}`;
+  renderLibrary();
+  toast(`${ok} cifras importadas`);
+  setTimeout(() => { prog.style.display = 'none'; }, 4000);
+});
+$('#importCancel').addEventListener('click', () => { cancelImport = true; });
+
+$('#urlImportBtn').addEventListener('click', async () => {
+  let url = $('#urlInput').value.trim();
+  if (!/cifraclub\.com\.br\/[^\/]+\/[^\/]+/.test(url)) return toast('URL inválida do CifraClub');
+  url = url.split(/[?#]/)[0].replace(/\/(imprimir\.html)?$/, '');
+  const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)/.exec(url);
+  $('#urlImportBtn').disabled = true;
+  try {
+    const { song, updated } = await importOneSong(m[1], m[2]);
+    toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
+    $('#urlInput').value = '';
+  } catch (err) { toast('Erro: ' + err.message, 4000); }
+  $('#urlImportBtn').disabled = false;
+});
+
+$('#pasteImportBtn').addEventListener('click', async () => {
+  const raw = $('#pasteInput').value;
+  if (!raw.trim()) return;
+  try {
+    let parsed;
+    if (/<pre[\s>]/i.test(raw)) parsed = parseCifraHTML(raw, '');
+    else {
+      const lines = raw.replace(/\r\n?/g, '\n').split('\n');
+      let title = 'Sem título', artist = 'Desconhecido', body = raw;
+      // primeira linha "Título - Artista" opcional
+      if (lines[0] && !isChordLine(lines[0]) && lines[0].includes(' - ') && lines[0].length < 80) {
+        [title, artist] = lines[0].split(' - ').map(x => x.trim());
+        body = lines.slice(1).join('\n');
+      }
+      const content = tokenizePlainText(body.replace(/\s+$/, ''));
+      const first = TOKEN_RE.exec(content); TOKEN_RE.lastIndex = 0;
+      const key = first ? first[1].replace(/^([A-G](?:#|b)?m?).*/, '$1') : 'C';
+      parsed = { title, artist, originalKey: key, capo: '', content, artistSlug: '', songSlug: '' };
+    }
+    const { song, updated } = await saveSong(parsed);
+    $('#pasteInput').value = '';
+    toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
+    openViewer(song.id);
+  } catch (err) { toast('Erro: ' + err.message, 4000); }
+});
+
+/* ------------------------- ajustes ------------------------- */
+async function loadProxies() {
+  PROXIES = await getSetting('proxies', DEFAULT_PROXIES.slice());
+  $('#proxyList').value = PROXIES.join('\n');
+}
+$('#proxySave').addEventListener('click', async () => {
+  PROXIES = $('#proxyList').value.split('\n').map(s => s.trim()).filter(Boolean);
+  await setSetting('proxies', PROXIES);
+  toast('Proxies salvos');
+});
+$('#proxyReset').addEventListener('click', async () => {
+  PROXIES = DEFAULT_PROXIES.slice();
+  $('#proxyList').value = PROXIES.join('\n');
+  await setSetting('proxies', PROXIES);
+});
+$('#proxyTest').addEventListener('click', async () => {
+  const out = $('#proxyTestResult');
+  out.textContent = 'Testando…';
+  const test = 'https://www.cifraclub.com.br/legiao-urbana/tempo-perdido/imprimir.html';
+  const lines = [];
+  for (const tpl of $('#proxyList').value.split('\n').map(s => s.trim()).filter(Boolean)) {
+    const target = tpl.replace('{url}', encodeURIComponent(test)).replace('{raw}', test);
+    const t0 = Date.now();
+    try {
+      const txt = await fetchText(target, 15000);
+      lines.push(txt.includes('<pre') ? `✅ ${tpl.split('/')[2]} — ok (${Date.now() - t0}ms)`
+                                      : `⚠️ ${tpl.split('/')[2]} — respondeu, mas sem cifra`);
+    } catch (e) { lines.push(`❌ ${tpl.split('/')[2]} — ${e.name === 'AbortError' ? 'timeout' : e.message}`); }
+    out.textContent = lines.join('\n');
+  }
+});
+
+$('#exportBtn').addEventListener('click', async () => {
+  const data = { app: 'cifras-app', version: 1, exportedAt: new Date().toISOString(), songs: SONGS, playlists: PLAYLISTS };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cifras-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('#importBackupBtn').addEventListener('click', () => $('#importBackupFile').click());
+$('#importBackupFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.songs)) throw new Error('formato inválido');
+    let n = 0;
+    for (const s of data.songs) { if (s.id && s.content != null) { await dbPut('songs', s); n++; } }
+    for (const p of (data.playlists || [])) { if (p.id) await dbPut('playlists', p); }
+    await reloadCache();
+    renderLibrary();
+    toast(`Backup restaurado: ${n} cifras`);
+  } catch (err) { toast('Erro no backup: ' + err.message, 4000); }
+  e.target.value = '';
+});
+$('#wipeBtn').addEventListener('click', async () => {
+  if (!confirm('Apagar TODAS as cifras e playlists? Esta ação não pode ser desfeita.')) return;
+  await dbClear('songs'); await dbClear('playlists');
+  await reloadCache();
+  renderLibrary(); renderPlaylists();
+  toast('Tudo apagado');
+});
+async function renderStorageInfo() {
+  let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
+  try {
+    if (navigator.storage?.estimate) {
+      const e = await navigator.storage.estimate();
+      txt += ` Uso: ${(e.usage / 1048576).toFixed(1)} MB.`;
+    }
+  } catch {}
+  $('#storageInfo').textContent = txt;
+}
+
+/* ------------------------- online/offline ------------------------- */
+function updateNet() {
+  const on = navigator.onLine;
+  const b = $('#netBadge');
+  b.textContent = on ? 'online' : 'offline';
+  b.classList.toggle('off', !on);
+}
+window.addEventListener('online', updateNet);
+window.addEventListener('offline', updateNet);
+
+/* ------------------------- init ------------------------- */
+(async function init() {
+  await openDB();
+  await reloadCache();
+  fontSize = await getSetting('fontSize', 14);
+  await loadProxies();
+  updateNet();
+  renderLibrary();
+  try { navigator.storage?.persist?.(); } catch {}
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

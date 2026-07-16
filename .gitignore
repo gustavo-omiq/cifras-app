@@ -1,0 +1,7 @@
+# artefatos de desenvolvimento (ruflo/claude) — não fazem parte do site
+.claude/
+.claude-flow/
+.swarm/
+.mcp.json
+ruvector.db
+*.db
