@@ -1063,7 +1063,10 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <h2>Sincronização entre aparelhos</h2>
       <p class="muted" style="margin-bottom:4px">Mantém cifras e playlists iguais em todos os seus aparelhos, via um Worker gratuito da Cloudflare. Use a <b>mesma URL e a mesma chave</b> em todos. Quem tem a chave acessa a biblioteca — trate como senha.</p>
       <label>URL do Worker</label>
-      <input type="text" id="syncUrl" placeholder="https://cifras-sync.gutuler.workers.dev" inputmode="url">
+      <div class="row">
+        <input type="text" id="syncUrl" placeholder="https://cifras-sync.gutuler.workers.dev" inputmode="url" style="flex:1;width:auto">
+        <button class="btn sm ghost" id="syncUrlDefault">Usar padrão</button>
+      </div>
       <label>Chave de sincronização</label>
       <div class="row">
         <input type="text" id="syncKey" placeholder="CIFRAS-XXXX-XXXX-XXXX-XXXX" style="flex:1;width:auto;font-family:var(--font-mono)" autocomplete="off">
@@ -2937,8 +2940,11 @@ async function doSync(manual) {
     setSyncStatus(syncStatusIdle());
     if (manual) toast('Sincronizado');
   } catch (e) {
-    setSyncStatus('Falha ao sincronizar: ' + e.message);
-    if (manual) toast('Erro ao sincronizar: ' + e.message, 4000);
+    let msg = e.message;
+    if (/HTTP 404/.test(msg)) msg = 'HTTP 404 — a URL do Worker parece errada (não é a URL do app!). Confira nos Ajustes ou toque em "Usar padrão".';
+    if (/HTTP 401/.test(msg)) msg = 'HTTP 401 — a chave de sincronização está vazia ou curta demais.';
+    setSyncStatus('Falha ao sincronizar: ' + msg);
+    if (manual) toast('Erro ao sincronizar: ' + msg, 5000);
   } finally {
     syncBusy = false;
   }
@@ -2947,9 +2953,20 @@ $('#syncGenKey').addEventListener('click', () => {
   if ($('#syncKey').value.trim() && !confirm('Gerar uma NOVA chave? A biblioteca sincronizada com a chave atual deixa de ser acessada.')) return;
   $('#syncKey').value = genSyncKey();
 });
+const SYNC_URL_DEFAULT = 'https://cifras-sync.gutuler.workers.dev';
+$('#syncUrlDefault').addEventListener('click', () => { $('#syncUrl').value = SYNC_URL_DEFAULT; });
+/* confere se a URL aponta mesmo para o Worker de sincronização */
+async function verifySyncUrl(url) {
+  try {
+    const res = await fetch(url + '/', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const body = await res.json();
+    return body && body.app === 'cifras-sync';
+  } catch { return false; }
+}
 $('#syncSave').addEventListener('click', async () => {
-  const url = $('#syncUrl').value.trim().replace(/\/+$/, '');
+  let url = $('#syncUrl').value.trim().replace(/\/+$/, '');
   const key = $('#syncKey').value.trim();
+  if (!url && key) { url = SYNC_URL_DEFAULT; $('#syncUrl').value = url; } // digitar à mão é traiçoeiro — vazio usa o padrão
   if (url && !/^https:\/\//.test(url)) return toast('A URL do Worker deve começar com https://');
   if (key && key.length < 16) return toast('A chave precisa ter pelo menos 16 caracteres');
   const keyChanged = key !== SYNC.key;
@@ -2958,6 +2975,16 @@ $('#syncSave').addEventListener('click', async () => {
   if (keyChanged) { SYNC.rev = 0; SYNC.dirty = true; }
   await setSetting('sync', SYNC);
   setSyncStatus(syncStatusIdle());
+  if (url && navigator.onLine) {
+    setSyncStatus('Verificando a URL do Worker…');
+    const okUrl = await verifySyncUrl(url);
+    if (!okUrl) {
+      setSyncStatus('⚠️ Essa URL não respondeu como o Worker de sincronização — confira (use "Usar padrão" se tiver dúvida).');
+      toast('URL salva, mas não parece ser o Worker — confira', 4000);
+      return;
+    }
+    setSyncStatus('✅ Worker verificado. ' + syncStatusIdle());
+  }
   toast('Configuração de sincronização salva');
 });
 $('#syncNow').addEventListener('click', () => doSync(true));
