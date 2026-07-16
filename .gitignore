@@ -5,3 +5,6 @@
 .mcp.json
 ruvector.db
 *.db
+
+# cache do wrangler (Cloudflare)
+worker/.wrangler/

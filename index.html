@@ -965,6 +965,28 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
     </div>
 
     <div class="card">
+      <h2>Sincronização entre aparelhos</h2>
+      <p class="muted" style="margin-bottom:4px">Mantém cifras e playlists iguais em todos os seus aparelhos, via um Worker gratuito da Cloudflare. Use a <b>mesma URL e a mesma chave</b> em todos. Quem tem a chave acessa a biblioteca — trate como senha.</p>
+      <label>URL do Worker</label>
+      <input type="text" id="syncUrl" placeholder="https://cifras-sync.gutuler.workers.dev" inputmode="url">
+      <label>Chave de sincronização</label>
+      <div class="row">
+        <input type="text" id="syncKey" placeholder="CIFRAS-XXXX-XXXX-XXXX-XXXX" style="flex:1;width:auto;font-family:var(--font-mono)" autocomplete="off">
+        <button class="btn sm ghost" id="syncGenKey">Gerar</button>
+      </div>
+      <label class="checkrow" style="border:none;padding-left:0"><input type="checkbox" id="syncAuto" checked> Sincronizar automaticamente</label>
+      <div class="row">
+        <button class="btn sm" id="syncNow">Sincronizar agora</button>
+        <button class="btn sm ghost" id="syncSave">Salvar</button>
+      </div>
+      <p class="muted" id="syncStatus" style="margin-top:8px"></p>
+      <details>
+        <summary>Como criar o Worker (uma vez, grátis)</summary>
+        <p class="muted" style="margin-top:6px">No painel da Cloudflare: <b>Workers &amp; Pages → Create Worker</b>, cole o código de <code>worker/sync-worker.js</code> do repositório do app, crie um KV namespace e vincule como <code>SYNC_KV</code>. Ou, com o repositório clonado: <code>cd worker &amp;&amp; npx wrangler kv namespace create SYNC_KV &amp;&amp; npx wrangler deploy</code>.</p>
+      </details>
+    </div>
+
+    <div class="card">
       <h2>Backup</h2>
       <div class="row">
         <button class="btn" id="exportBtn">Exportar biblioteca (JSON)</button>
@@ -1132,9 +1154,10 @@ const dbAll = async store => {
     rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
   });
 };
-const dbPut = (store, obj) => tx(store, 'readwrite', s => s.put(obj));
-const dbDel = (store, id) => tx(store, 'readwrite', s => s.delete(id));
-const dbClear = store => tx(store, 'readwrite', s => s.clear());
+/* toda escrita em cifras/playlists marca a biblioteca como "suja" para o sync */
+const dbPut = (store, obj) => { markDirty(store); return tx(store, 'readwrite', s => s.put(obj)); };
+const dbDel = (store, id) => { markDirty(store); return tx(store, 'readwrite', s => s.delete(id)); };
+const dbClear = store => { markDirty(store); return tx(store, 'readwrite', s => s.clear()); };
 
 async function getSetting(key, def) {
   const db = await openDB();
@@ -1373,6 +1396,7 @@ function parseArtistPage(html, slug) {
 
 /* ------------------------- CifraClub: rede ------------------------- */
 const DEFAULT_PROXIES = [
+  'https://cifras-sync.gutuler.workers.dev/proxy?url={url}', // Worker próprio (estável)
   'https://proxy.cors.sh/{raw}',
   'https://api.allorigins.win/raw?url={url}',
   'https://api.codetabs.com/v1/proxy?quest={url}',
@@ -1721,6 +1745,7 @@ function renderViewer() {
 async function setTranspose(delta, reset) {
   const s = vSong(); if (!s) return;
   s.transpose = reset ? 0 : Math.max(-11, Math.min(11, (s.transpose || 0) + delta));
+  s.updatedAt = Date.now();
   await dbPut('songs', s);
   renderViewer();
 }
@@ -1739,6 +1764,7 @@ async function setFont(d) {
 $('#vFav').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   s.favorite = !s.favorite;
+  s.updatedAt = Date.now();
   await dbPut('songs', s);
   await reloadCache();
   renderViewer();
@@ -1802,6 +1828,7 @@ function stepPlaylist(d) {
 $('#vDelete').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   if (!confirm(`Excluir "${s.title}" da biblioteca?`)) return;
+  await addTombstone(s.id);
   await dbDel('songs', s.id);
   for (const p of PLAYLISTS) {
     if (p.songIds.includes(s.id)) {
@@ -2092,6 +2119,7 @@ $('#plDetailExport').addEventListener('click', () => {
 $('#plDetailDel').addEventListener('click', async () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
   if (!confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) return;
+  await addTombstone(pl.id);
   await dbDel('playlists', pl.id); await reloadCache();
   $('#modalPlDetail').classList.remove('open');
   renderPlaylists();
@@ -2315,6 +2343,10 @@ function renderRecentImports() {
 /* ------------------------- ajustes ------------------------- */
 $('#settingsBtn').addEventListener('click', () => {
   renderStorageInfo();
+  $('#syncUrl').value = SYNC.url;
+  $('#syncKey').value = SYNC.key;
+  $('#syncAuto').checked = !!SYNC.auto;
+  setSyncStatus(syncStatusIdle());
   $('#modalSettings').classList.add('open');
 });
 $('#settingsClose').addEventListener('click', () => $('#modalSettings').classList.remove('open'));
@@ -2416,6 +2448,8 @@ $('#updateAllBtn').addEventListener('click', async () => {
 });
 $('#wipeBtn').addEventListener('click', async () => {
   if (!confirm('Apagar TODAS as cifras e playlists? Esta ação não pode ser desfeita.')) return;
+  for (const it of [...SONGS, ...PLAYLISTS]) TOMBS[it.id] = Date.now();
+  await setSetting('tombstones', TOMBS);
   await dbClear('songs'); await dbClear('playlists');
   try { await dbClear('images'); } catch {}
   ARTIMG.clear();
@@ -2433,6 +2467,156 @@ async function renderStorageInfo() {
   } catch {}
   $('#storageInfo').textContent = txt;
 }
+
+/* ------------------------- sincronização entre aparelhos ------------------------- */
+/* Protocolo: Worker Cloudflare com { rev, data } por chave de sincronização.
+ * A mesclagem acontece no cliente: por item, o updatedAt mais novo vence;
+ * exclusões viram tombstones para não "ressuscitar" no outro aparelho. */
+let SYNC = { url: '', key: '', auto: true, rev: 0, dirty: false, lastAt: 0 };
+let TOMBS = {}; // id → quando foi excluído
+let syncBusy = false, syncTimer = null, syncApplying = false;
+
+function markDirty(store) {
+  if (store !== 'songs' && store !== 'playlists') return;
+  if (syncApplying || typeof SYNC !== 'object') return;
+  if (!SYNC.dirty) { SYNC.dirty = true; setSetting('sync', SYNC); }
+  scheduleSync();
+}
+async function addTombstone(id) {
+  TOMBS[id] = Date.now();
+  await setSetting('tombstones', TOMBS);
+}
+function scheduleSync() {
+  if (!SYNC.auto || !SYNC.url || !SYNC.key) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => doSync(false), 30000);
+}
+function genSyncKey() {
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const rnd = crypto.getRandomValues(new Uint8Array(16));
+  const g = i => Array.from(rnd.slice(i, i + 4), b => abc[b % abc.length]).join('');
+  return `CIFRAS-${g(0)}-${g(4)}-${g(8)}-${g(12)}`;
+}
+/* mescla local + remoto: updatedAt mais novo vence; tombstones removem */
+function mergeLibraries(localSongs, localPls, remote) {
+  const r = remote || { songs: [], playlists: [], tombstones: {} };
+  const tombs = { ...(r.tombstones || {}) };
+  for (const [id, ts] of Object.entries(TOMBS)) tombs[id] = Math.max(ts, tombs[id] || 0);
+  const cut = Date.now() - 90 * 24 * 3600 * 1000; // GC de tombstones antigos
+  for (const id of Object.keys(tombs)) if (tombs[id] < cut) delete tombs[id];
+
+  const stamp = it => it.updatedAt || it.createdAt || 0;
+  const mergeArr = (loc, rem) => {
+    const map = new Map();
+    for (const it of rem || []) if (it && it.id) map.set(it.id, it);
+    for (const it of loc) {
+      const cur = map.get(it.id);
+      if (!cur || stamp(it) > stamp(cur)) map.set(it.id, it);
+    }
+    return [...map.values()].filter(it => !(tombs[it.id] && tombs[it.id] >= stamp(it)));
+  };
+  return { songs: mergeArr(localSongs, r.songs), playlists: mergeArr(localPls, r.playlists), tombstones: tombs };
+}
+/* grava o resultado da mesclagem localmente (sem re-marcar como sujo) */
+async function applyMerged(merged) {
+  syncApplying = true;
+  try {
+    const keepS = new Set(merged.songs.map(s => s.id));
+    const keepP = new Set(merged.playlists.map(p => p.id));
+    for (const s of SONGS) if (!keepS.has(s.id)) await dbDel('songs', s.id);
+    for (const p of PLAYLISTS) if (!keepP.has(p.id)) await dbDel('playlists', p.id);
+    for (const s of merged.songs) await dbPut('songs', s);
+    for (const p of merged.playlists) await dbPut('playlists', p);
+    TOMBS = merged.tombstones;
+    await setSetting('tombstones', TOMBS);
+    await reloadCache();
+    rerenderLists();
+  } finally { syncApplying = false; }
+}
+function setSyncStatus(txt) {
+  const el = $('#syncStatus');
+  if (el) el.textContent = txt;
+}
+function syncStatusIdle() {
+  if (!SYNC.url || !SYNC.key) return 'Não configurado.';
+  if (!SYNC.lastAt) return 'Nunca sincronizado.';
+  return `Última sincronização ${timeAgo(SYNC.lastAt)} (rev ${SYNC.rev})${SYNC.dirty ? ' — há alterações locais pendentes' : ''}.`;
+}
+async function doSync(manual) {
+  if (syncBusy) return;
+  if (!SYNC.url || !SYNC.key) { if (manual) toast('Configure a URL do Worker e a chave nos Ajustes'); return; }
+  if (!navigator.onLine) { if (manual) toast('Sem internet — sincroniza quando voltar'); return; }
+  syncBusy = true;
+  setSyncStatus('Sincronizando…');
+  const base = SYNC.url.replace(/\/+$/, '');
+  const headers = { 'Authorization': 'Bearer ' + SYNC.key, 'Content-Type': 'application/json' };
+  try {
+    let res = await fetch(`${base}/sync?since=${SYNC.dirty ? -1 : SYNC.rev}`, { headers });
+    let remote = null, remoteRev = SYNC.rev;
+    if (res.status === 204) { // servidor na mesma revisão e nada local pendente
+      SYNC.lastAt = Date.now();
+      await setSetting('sync', SYNC);
+      setSyncStatus(syncStatusIdle());
+      if (manual) toast('Tudo em dia');
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    ({ data: remote, rev: remoteRev } = await res.json());
+
+    let merged = mergeLibraries(SONGS, PLAYLISTS, remote);
+    await applyMerged(merged);
+
+    const needPut = SYNC.dirty || !remote || JSON.stringify({ s: merged.songs, p: merged.playlists })
+      !== JSON.stringify({ s: remote.songs || [], p: remote.playlists || [] });
+    let pushed = !needPut;
+    if (needPut) {
+      for (let tent = 0; tent < 2; tent++) {
+        res = await fetch(`${base}/sync`, { method: 'PUT', headers, body: JSON.stringify({ baseRev: remoteRev, data: merged }) });
+        if (res.status === 409) { // outro aparelho gravou no meio: mescla de novo e tenta uma vez
+          const cur = await res.json();
+          remoteRev = cur.rev;
+          merged = mergeLibraries(SONGS, PLAYLISTS, cur.data);
+          await applyMerged(merged);
+          continue;
+        }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        ({ rev: remoteRev } = await res.json());
+        pushed = true;
+        break;
+      }
+    }
+    SYNC.rev = remoteRev;
+    SYNC.dirty = !pushed; // dois 409 seguidos: mantém pendente para a próxima rodada
+    SYNC.lastAt = Date.now();
+    await setSetting('sync', SYNC);
+    setSyncStatus(syncStatusIdle());
+    if (manual) toast('Sincronizado');
+  } catch (e) {
+    setSyncStatus('Falha ao sincronizar: ' + e.message);
+    if (manual) toast('Erro ao sincronizar: ' + e.message, 4000);
+  } finally {
+    syncBusy = false;
+  }
+}
+$('#syncGenKey').addEventListener('click', () => {
+  if ($('#syncKey').value.trim() && !confirm('Gerar uma NOVA chave? A biblioteca sincronizada com a chave atual deixa de ser acessada.')) return;
+  $('#syncKey').value = genSyncKey();
+});
+$('#syncSave').addEventListener('click', async () => {
+  const url = $('#syncUrl').value.trim().replace(/\/+$/, '');
+  const key = $('#syncKey').value.trim();
+  if (url && !/^https:\/\//.test(url)) return toast('A URL do Worker deve começar com https://');
+  if (key && key.length < 16) return toast('A chave precisa ter pelo menos 16 caracteres');
+  const keyChanged = key !== SYNC.key;
+  SYNC.url = url; SYNC.key = key;
+  SYNC.auto = $('#syncAuto').checked;
+  if (keyChanged) { SYNC.rev = 0; SYNC.dirty = true; }
+  await setSetting('sync', SYNC);
+  setSyncStatus(syncStatusIdle());
+  toast('Configuração de sincronização salva');
+});
+$('#syncNow').addEventListener('click', () => doSync(true));
+window.addEventListener('online', () => scheduleSync());
 
 /* ------------------------- online/offline ------------------------- */
 function updateNet() {
@@ -2453,11 +2637,14 @@ window.addEventListener('offline', updateNet);
   scrollSpeed = await getSetting('scrollSpeed', 100);
   themePref = await getSetting('theme', 'auto');
   RECENTS = await getSetting('recentSearches', []);
+  SYNC = Object.assign(SYNC, await getSetting('sync', {}));
+  TOMBS = await getSetting('tombstones', {});
   applyTheme();
   renderThemeChips();
   await loadProxies();
   updateNet();
   showView('home');
+  if (SYNC.auto && SYNC.url && SYNC.key) setTimeout(() => doSync(false), 2500);
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});

@@ -1,0 +1,9 @@
+name = "cifras-sync"
+main = "sync-worker.js"
+compatibility_date = "2026-07-16"
+
+# O id é preenchido ao criar o namespace:
+#   npx wrangler kv namespace create SYNC_KV
+[[kv_namespaces]]
+binding = "SYNC_KV"
+id = "46b755a9135c4006b8356e1918ee8e43"
