@@ -138,6 +138,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
+/* iOS: não inflar texto em paisagem; toques rápidos não disparam zoom de duplo toque */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, .chip, .songitem, .chord-card, input, label { touch-action: manipulation; }
 body {
   font-family: var(--font-sans);
   background: var(--bg); color: var(--text);
@@ -638,6 +641,38 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
   max-width: 90vw; text-align: center; box-shadow: var(--shadow);
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- Telas estreitas (celular) ---------- */
+/* filhos de grid nunca estouram a coluna (min-width automático de grid) */
+.searchcols > *, .bento > *, .plgrid > *, .impgrid > *, .artist-grid > * { min-width: 0; }
+
+@media (max-width: 759px) {
+  /* buscas recentes abaixo dos resultados quando vira coluna única */
+  .searchcols aside { order: 2; }
+}
+@media (max-width: 480px) {
+  main { padding-left: 14px; padding-right: 14px; }
+  #topbar { padding-left: 14px; padding-right: 14px; }
+  /* Playlists: título e botões empilhados, botões em largura total */
+  .pagehead { flex-direction: column; align-items: stretch; }
+  .pagehead .row { display: flex; }
+  .pagehead .row .btn { flex: 1; }
+  /* linhas de música: menos enfeite, mais espaço para o título */
+  .songitem { padding: 10px 12px; gap: 10px; }
+  .songitem .rowic { display: none; }
+  .plitem .pill { display: none; }
+  /* visualizador: cabeçalho e ferramentas mais compactos */
+  #vhead .iconbtn { width: 37px; height: 40px; }
+  .toolgroup button { min-width: 34px; padding: 4px 8px; }
+  .artist-grid { gap: 10px; }
+  .modal { padding-left: 14px; padding-right: 14px; }
+  .card { padding: 15px; }
+}
+@media (max-width: 374px) {
+  #tabbar button { font-size: 9.5px; letter-spacing: .02em; }
+  .songitem .pill { display: none; }
+  #fab { width: 52px; height: 52px; right: 14px; }
+}
 </style>
 </head>
 <body>
