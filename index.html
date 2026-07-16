@@ -529,6 +529,10 @@ input:focus, textarea:focus {
   overflow-x: auto; scrollbar-width: none;
 }
 #vtools::-webkit-scrollbar { display: none; }
+/* em telas estreitas as ferramentas quebram em linhas — nada fica cortado */
+@media (max-width: 700px) {
+  #vtools { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+}
 .toolgroup {
   display: flex; align-items: center; gap: 2px;
   background: var(--surface2); border: 1px solid var(--border);
@@ -679,6 +683,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   /* visualizador: cabeçalho e ferramentas mais compactos */
   #vhead .iconbtn { width: 37px; height: 40px; }
   .toolgroup button { min-width: 34px; padding: 4px 8px; }
+  .toolgroup .val { min-width: 40px; }
   .artist-grid { gap: 10px; }
   .modal { padding-left: 14px; padding-right: 14px; }
   .card { padding: 15px; }
