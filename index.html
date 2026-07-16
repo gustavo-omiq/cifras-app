@@ -643,6 +643,21 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---------- Telas estreitas (celular) ---------- */
+/* Nada pode alargar o layout viewport: se algo vazar, corta em vez de
+ * empurrar a página (e a tabbar fixa) para fora da tela.
+ * clip não cria contexto de rolagem (preserva o sticky do topbar). */
+html, body { overflow-x: hidden; max-width: 100%; }
+@supports (overflow-x: clip) {
+  html, body { overflow-x: clip; }
+}
+
+/* Em telas de toque, campo com fonte <16px faz o iOS/Android darem zoom ao
+ * focar — e o zoom fica. Com 16px o navegador não mexe na escala. */
+@media (pointer: coarse) {
+  input[type=text], input[type=search], textarea,
+  .modal textarea, #settings textarea, #pasteInput { font-size: 16px !important; }
+}
+
 /* filhos de grid nunca estouram a coluna (min-width automático de grid) */
 .searchcols > *, .bento > *, .plgrid > *, .impgrid > *, .artist-grid > * { min-width: 0; }
 
