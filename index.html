@@ -1786,6 +1786,114 @@ let vSongId = null;
 let vContext = null; // {playlistId, index} quando aberto por playlist
 let fontSize = 14;
 
+/* ---- quebra de linha inteligente ----
+ * Linhas maiores que a tela são quebradas SEM perder o alinhamento: o par
+ * acorde+letra é cortado na mesma coluna (em espaço da letra), então cada
+ * acorde continua sobre a própria sílaba. Tablaturas não quebram (rolam). */
+const TOKEN_G = /\u0011[^\u0012]*\u0012/g;
+const stripTk = s => s.replace(/[\u0011\u0012]/g, '');
+const visLen = s => stripTk(s).length;
+/* recorta a faixa de colunas visíveis [from, to) preservando tokens inteiros;
+ * acorde que atravessa o corte vai para o segmento seguinte */
+function sliceTokens(s, from, to) {
+  let out = '', col = 0, i = 0;
+  while (i < s.length) {
+    if (s[i] === CH_OPEN) {
+      const j = s.indexOf(CH_CLOSE, i);
+      const chord = s.slice(i + 1, j);
+      const w = chord.length;
+      if ((col >= from && col + w <= to) || (col < from && col + w > from))
+        out += CH_OPEN + chord + CH_CLOSE;
+      col += w; i = j + 1;
+    } else {
+      if (col >= from && col < to) out += s[i];
+      col++; i++;
+    }
+  }
+  return out;
+}
+function findCut(visible, cols) {
+  const lim = Math.min(cols, visible.length - 1);
+  for (let i = lim; i > 0; i--)
+    if (visible[i] === ' ' && visible[i - 1] !== ' ') return i;
+  return cols; // palavra maior que a tela: quebra dura
+}
+function wrapPair(chordLine, lyricLine, cols, out) {
+  let c = chordLine, l = lyricLine, guard = 0;
+  while ((visLen(l) > cols || visLen(c) > cols) && guard++ < 60) {
+    const cut = findCut(l, cols);
+    let rs = cut;
+    while (l[rs] === ' ') rs++;
+    out.push(sliceTokens(c, 0, cut), l.slice(0, cut));
+    c = sliceTokens(c, rs, Infinity);
+    l = l.slice(rs);
+  }
+  out.push(c, l);
+}
+function wrapSingle(line, cols) {
+  const segs = [];
+  let s = line, guard = 0;
+  while (visLen(s) > cols && guard++ < 60) {
+    const v = stripTk(s);
+    const cut = findCut(v, cols);
+    let rs = cut;
+    while (v[rs] === ' ') rs++;
+    segs.push(sliceTokens(s, 0, cut));
+    s = sliceTokens(s, rs, Infinity);
+  }
+  segs.push(s);
+  return segs;
+}
+function wrapContent(content, cols) {
+  if (!isFinite(cols) || cols < 12) return content;
+  const src = content.split('\n');
+  const out = [];
+  const isTab = v => v.includes('|-') || v.includes('-|');
+  const isPure = ln => ln.indexOf(CH_OPEN) !== -1 && ln.replace(TOKEN_G, '').trim() === '';
+  for (let i = 0; i < src.length; i++) {
+    const cur = src[i];
+    const vis = stripTk(cur);
+    if (isTab(vis)) { out.push(cur); continue; }
+    if (isPure(cur) && i + 1 < src.length) {
+      const next = src[i + 1];
+      const nvis = stripTk(next);
+      if (!isPure(next) && !isTab(nvis) && nvis.trim() !== '') {
+        if (visLen(cur) > cols || visLen(next) > cols) wrapPair(cur, next, cols, out);
+        else out.push(cur, next);
+        i++;
+        continue;
+      }
+    }
+    if (visLen(cur) > cols) out.push(...wrapSingle(cur, cols));
+    else out.push(cur);
+  }
+  return out.join('\n');
+}
+/* quantas colunas de texto cabem na tela com a fonte atual */
+function viewerCols() {
+  const box = $('#vscroll');
+  if (!box || !box.clientWidth) return Infinity; // sem layout (testes): não quebra
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:var(--font-mono)';
+  probe.style.fontSize = fontSize + 'px';
+  probe.textContent = 'M'.repeat(40);
+  document.body.appendChild(probe);
+  const cw = (probe.getBoundingClientRect().width / 40) || (fontSize * 0.6);
+  probe.remove();
+  let width = box.clientWidth - 34; // padding horizontal do #vpre
+  if ($('#viewer').classList.contains('stage')
+      && matchMedia('(orientation: landscape) and (min-width: 900px)').matches) {
+    width = (width - 40) / 2; // modo palco em 2 colunas
+  }
+  return Math.max(16, Math.floor(width / cw));
+}
+let vResizeT = null;
+window.addEventListener('resize', () => {
+  if (!vSongId) return;
+  clearTimeout(vResizeT);
+  vResizeT = setTimeout(renderViewer, 250);
+});
+
 function currentKey(s) {
   const n = s.transpose || 0;
   return n ? transposeChord(s.originalKey, n, preferFlatFor(s.originalKey, n)) : s.originalKey;
@@ -1793,8 +1901,8 @@ function currentKey(s) {
 function openViewer(songId, context) {
   vSongId = songId; vContext = context || null;
   stopAutoScroll();
+  $('#viewer').classList.add('open'); // antes de renderizar: a largura precisa existir p/ calcular a quebra
   renderViewer();
-  $('#viewer').classList.add('open');
   $('#vscroll').scrollTop = 0;
   acquireWakeLock();
 }
@@ -1841,7 +1949,8 @@ function renderViewer() {
   noteEl.style.display = note ? 'inline-block' : 'none';
   const content = transposeContent(s.content, n, s.originalKey);
   $('#vpre').style.fontSize = fontSize + 'px';
-  $('#vpre').innerHTML = escHtml(content).replace(TOKEN_RE, '<b class="ch">$1</b>');
+  const wrapped = wrapContent(content, viewerCols());
+  $('#vpre').innerHTML = escHtml(wrapped).replace(TOKEN_RE, '<b class="ch">$1</b>');
 
   const nav = $('#vnav');
   if (vContext) {
@@ -1886,6 +1995,7 @@ $('#vFav').addEventListener('click', async () => {
 /* modo palco: tela cheia de cifra, 2 colunas no iPad em paisagem */
 $('#vStage').addEventListener('click', () => {
   const on = $('#viewer').classList.toggle('stage');
+  renderViewer(); // colunas disponíveis mudam (2 colunas em paisagem)
   if (on) toast('Modo palco — toque no ícone de volta para sair', 2200);
 });
 
