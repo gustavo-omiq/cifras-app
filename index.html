@@ -479,8 +479,14 @@ input:focus, textarea:focus {
 .impcard .ago { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
 
 .result-artist { border-left: 3px solid var(--accent); }
-#importProgress .bar { height: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
-#importProgress .fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; border-radius: 99px; }
+.impjob .bar { height: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin: 8px 0; }
+.impjob .fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; border-radius: 99px; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 99px; flex-shrink: 0;
+  border: 2.5px solid var(--accent-soft); border-top-color: var(--accent);
+  animation: spin .8s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .checkrow {
   display: flex; align-items: center; gap: 11px; min-height: 44px;
   padding: 7px 4px; border-bottom: 1px solid var(--border);
@@ -797,12 +803,7 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
       <div id="artistSongs"></div>
     </div>
 
-    <div class="card" id="importProgress" style="display:none;margin-top:16px">
-      <h2>Importando…</h2>
-      <div class="bar"><div class="fill"></div></div>
-      <div class="muted" id="importStatus"></div>
-      <button class="btn sm danger" id="importCancel" style="margin-top:10px">Cancelar</button>
-    </div>
+    <div id="importJobs" style="margin-top:16px"></div>
 
     <div class="card" style="margin-top:16px">
       <h2>Colar manualmente</h2>
@@ -2232,7 +2233,85 @@ $('#plPickCreate').addEventListener('click', async () => {
 });
 
 /* ------------------------- importação ------------------------- */
-let cancelImport = false, importAbort = null;
+/* Fila de jobs paralelos: cada artista importado vira um card com progresso
+ * próprio; no máximo 3 downloads simultâneos no total (educação com o servidor). */
+const importJobs = new Map(); // id → job
+let dlSlots = 3;
+const dlWaiters = [];
+async function acquireSlot() {
+  if (dlSlots > 0) { dlSlots--; return; }
+  await new Promise(r => dlWaiters.push(r));
+}
+function releaseSlot() {
+  const w = dlWaiters.shift();
+  if (w) w(); else dlSlots++;
+}
+function enqueueArtistImport(name, songs) {
+  const job = {
+    id: uid(), name, songs, done: 0, ok: 0, fail: 0, failed: [],
+    lastTitle: '', finished: false, cancelled: false, ctl: new AbortController(),
+  };
+  importJobs.set(job.id, job);
+  renderImportJobs();
+  runImportJob(job);
+  return job;
+}
+async function runImportJob(job) {
+  await Promise.all(job.songs.map(async s => {
+    await acquireSlot();
+    try {
+      if (job.ctl.signal.aborted) return;
+      job.lastTitle = s.title;
+      renderImportJobs();
+      await importOneSong(s.artistSlug, s.songSlug, { signal: job.ctl.signal });
+      job.ok++;
+    } catch (e) {
+      if (!job.ctl.signal.aborted) { job.fail++; job.failed.push(s.title); }
+    } finally {
+      job.done++;
+      releaseSlot();
+      renderImportJobs();
+    }
+  }));
+  job.finished = true;
+  renderImportJobs();
+  rerenderLists();
+  toast(`${job.name}: ${job.ok} cifra${job.ok === 1 ? '' : 's'} importada${job.ok === 1 ? '' : 's'}${job.fail ? `, ${job.fail} falhou${job.fail === 1 ? '' : 'aram'}` : ''}`);
+  // some sozinho: rápido se deu tudo certo, mais tempo se houve falhas para ler
+  setTimeout(() => { importJobs.delete(job.id); renderImportJobs(); }, job.fail ? 20000 : 6000);
+}
+function jobStatusText(job) {
+  if (job.cancelled) return `Cancelado — ${job.ok} importadas antes de parar.`;
+  if (job.finished) return `Concluído: ${job.ok} importadas${job.fail ? ` · falharam: ${job.failed.slice(0, 5).join(', ')}${job.failed.length > 5 ? '…' : ''}` : ''}`;
+  return job.lastTitle ? `Baixando: ${job.lastTitle}` : 'Na fila…';
+}
+function renderImportJobs() {
+  const box = $('#importJobs');
+  if (!box) return;
+  box.innerHTML = '';
+  for (const job of importJobs.values()) {
+    const total = job.songs.length;
+    const pct = Math.round(100 * job.done / total);
+    const el = document.createElement('div');
+    el.className = 'card impjob';
+    el.innerHTML = `
+      <div class="row" style="flex-wrap:nowrap">
+        ${job.finished ? (job.fail || job.cancelled ? '<span>⚠️</span>' : '<span>✅</span>') : '<span class="spinner"></span>'}
+        <b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(job.name)}</b>
+        <span class="muted" style="white-space:nowrap">${job.done}/${total}</span>
+        ${job.finished ? '' : `<button class="btn sm danger" data-job="${job.id}">Cancelar</button>`}
+      </div>
+      <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      <div class="muted">${escHtml(jobStatusText(job))}</div>`;
+    box.appendChild(el);
+  }
+}
+$('#importJobs').addEventListener('click', e => {
+  const b = e.target.closest('[data-job]');
+  if (!b) return;
+  const job = importJobs.get(b.dataset.job);
+  if (job) { job.cancelled = true; job.ctl.abort(); renderImportJobs(); }
+});
 
 async function importOneSong(aSlug, sSlug, opts) {
   const html = await fetchCifraClub(songUrl(aSlug, sSlug), t => t.includes('<pre'), opts);
@@ -2308,32 +2387,15 @@ async function loadArtistPanel(slug, name) {
 }
 $('#artistSelAll').addEventListener('click', () => $$('#artistSongs input').forEach(c => c.checked = true));
 $('#artistSelNone').addEventListener('click', () => $$('#artistSongs input').forEach(c => c.checked = false));
-$('#artistImportBtn').addEventListener('click', async () => {
+$('#artistImportBtn').addEventListener('click', () => {
   const picked = $$('#artistSongs input:checked').map(c => artistPanelSongs[+c.dataset.i]);
   if (!picked.length) return toast('Nenhuma música marcada');
-  const prog = $('#importProgress');
-  prog.style.display = '';
-  prog.scrollIntoView({ behavior: 'smooth' });
-  cancelImport = false;
-  importAbort = new AbortController(); // Cancelar interrompe até o download em andamento
-  let ok = 0, fail = 0;
-  const failed = [];
-  for (let i = 0; i < picked.length; i++) {
-    if (cancelImport) break;
-    const s = picked[i];
-    $('#importStatus').textContent = `${i + 1}/${picked.length}: ${s.title}`;
-    $('#importProgress .fill').style.width = Math.round(100 * i / picked.length) + '%';
-    try { await importOneSong(s.artistSlug, s.songSlug, { signal: importAbort.signal }); ok++; }
-    catch (e) { fail++; failed.push(s.title); console.warn('falha em', s.songSlug, e); }
-    await sleep(700); // gentileza com o servidor
-  }
-  $('#importProgress .fill').style.width = '100%';
-  $('#importStatus').textContent = `Concluído: ${ok} importadas${fail ? `, ${fail} falharam (${failed.slice(0, 5).join(', ')}${failed.length > 5 ? '…' : ''})` : ''}${cancelImport ? ' (cancelado)' : ''}`;
-  renderRecentImports();
-  toast(`${ok} cifras importadas${fail ? `, ${fail} falharam` : ''}`);
-  setTimeout(() => { prog.style.display = 'none'; }, 8000);
+  const name = $('#artistPanelTitle').textContent.replace(/^Músicas de /, '').replace(/ \(\d+\)$/, '').replace(/ — carregando…$/, '');
+  enqueueArtistImport(name || 'Artista', picked);
+  // libera o painel na hora: dá para buscar e importar outro artista em paralelo
+  $('#artistPanel').style.display = 'none';
+  $('#importJobs').scrollIntoView?.({ behavior: 'smooth' });
 });
-$('#importCancel').addEventListener('click', () => { cancelImport = true; importAbort?.abort(); });
 
 $('#urlImportBtn').addEventListener('click', async () => {
   let url = $('#urlInput').value.trim();
