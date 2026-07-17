@@ -622,7 +622,7 @@ input:focus, textarea:focus {
 /* ---------- Favoritas / notas ---------- */
 .songitem .fav { color: var(--accent); display: inline-flex; }
 .iconbtn.faved { color: var(--accent); }
-#vTabs.faved { color: var(--accent); border-color: var(--accent); }
+#vTabs.faved, #vCapoToggle.faved { color: var(--accent); border-color: var(--accent); }
 .pnote {
   font-size: 12.5px; color: var(--pill-ink); background: var(--pill-bg);
   border-radius: 7px; padding: 2px 8px; margin-top: 4px;
@@ -1100,10 +1100,13 @@ html, body { overflow-x: hidden; max-width: 100%; }
       </button>
     </div>
     <label>Capotraste</label>
-    <div class="toolgroup" style="width:max-content">
-      <button id="vCapoDown" aria-label="Capotraste uma casa abaixo">−</button>
-      <span class="val" id="vCapoVal"></span>
-      <button id="vCapoUp" aria-label="Capotraste uma casa acima">+</button>
+    <div class="row" style="align-items:center">
+      <button class="btn sm subtle" id="vCapoToggle">Usar capotraste</button>
+      <div class="toolgroup" id="vCapoGroup" style="width:max-content">
+        <button id="vCapoDown" aria-label="Capotraste uma casa abaixo">−</button>
+        <span class="val" id="vCapoVal"></span>
+        <button id="vCapoUp" aria-label="Capotraste uma casa acima">+</button>
+      </div>
     </div>
     <label>Tamanho da fonte</label>
     <div class="toolgroup" style="width:max-content">
@@ -2077,7 +2080,9 @@ function renderViewer() {
   $('#vKey').textContent = keyLabel;
   $('#vStageLabel').textContent = $('#viewer').classList.contains('stage') ? 'Sair do modo palco' : 'Entrar no modo palco';
   $('#vCapo').textContent = capo ? `· com capotraste os acordes ficam em ${shapeKey}` : '';
-  $('#vCapoVal').textContent = capo ? `${capo}ª casa` : 'sem';
+  $('#vCapoToggle').classList.toggle('faved', capo > 0);
+  $('#vCapoGroup').style.display = capo ? '' : 'none';
+  $('#vCapoVal').textContent = capo ? `${capo}ª casa` : '';
   const capoEl = $('#vCapoBadge');
   capoEl.textContent = capo ? `Capotraste na ${capo}ª casa` : '';
   capoEl.style.display = capo ? 'inline-block' : 'none';
@@ -2134,16 +2139,19 @@ $('#vTransUp').addEventListener('click', () => setTranspose(1));
 $('#vTransDown').addEventListener('click', () => setTranspose(-1));
 $('#vTransReset').addEventListener('click', () => setTranspose(0, true));
 /* capotraste é da música (não da playlist): muda onde ela soa, em todo lugar */
-async function setCapo(delta) {
+async function saveCapo(c) {
   const s = vSong(); if (!s) return;
-  const c = Math.max(0, Math.min(11, capoFret(s) + delta));
   s.capo = c ? `Capotraste na ${c}ª casa` : '';
   s.updatedAt = Date.now();
   await dbPut('songs', s);
   renderViewer();
 }
-$('#vCapoUp').addEventListener('click', () => setCapo(1));
-$('#vCapoDown').addEventListener('click', () => setCapo(-1));
+$('#vCapoToggle').addEventListener('click', () => {
+  const s = vSong(); if (!s) return;
+  saveCapo(capoFret(s) > 0 ? 0 : 1); // liga na 1ª casa; desligar remove o capo
+});
+$('#vCapoUp').addEventListener('click', () => { const s = vSong(); if (s) saveCapo(Math.min(11, capoFret(s) + 1)); });
+$('#vCapoDown').addEventListener('click', () => { const s = vSong(); if (s) saveCapo(Math.max(1, capoFret(s) - 1)); });
 $('#vFontUp').addEventListener('click', () => setFont(1));
 $('#vFontDown').addEventListener('click', () => setFont(-1));
 async function setFont(d) {
