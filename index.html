@@ -2081,6 +2081,7 @@ function renderViewer() {
   $('#vStageLabel').textContent = $('#viewer').classList.contains('stage') ? 'Sair do modo palco' : 'Entrar no modo palco';
   $('#vCapo').textContent = capo ? `· com capotraste os acordes ficam em ${shapeKey}` : '';
   $('#vCapoToggle').classList.toggle('faved', capo > 0);
+  $('#vCapoToggle').textContent = capo ? 'Remover capotraste' : 'Usar capotraste';
   $('#vCapoGroup').style.display = capo ? '' : 'none';
   $('#vCapoVal').textContent = capo ? `${capo}ª casa` : '';
   const capoEl = $('#vCapoBadge');
@@ -2148,7 +2149,11 @@ async function saveCapo(c) {
 }
 $('#vCapoToggle').addEventListener('click', () => {
   const s = vSong(); if (!s) return;
-  saveCapo(capoFret(s) > 0 ? 0 : 1); // liga na 1ª casa; desligar remove o capo
+  const cur = capoFret(s);
+  if (cur > 0) { // desligar apaga a casa salva — confirma pra evitar toque sem querer
+    if (!confirm(`Remover o capotraste (${cur}ª casa) desta música?`)) return;
+    saveCapo(0);
+  } else saveCapo(1); // liga na 1ª casa
 });
 $('#vCapoUp').addEventListener('click', () => { const s = vSong(); if (s) saveCapo(Math.min(11, capoFret(s) + 1)); });
 $('#vCapoDown').addEventListener('click', () => { const s = vSong(); if (s) saveCapo(Math.max(1, capoFret(s) - 1)); });
