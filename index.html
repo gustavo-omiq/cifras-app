@@ -622,6 +622,7 @@ input:focus, textarea:focus {
 /* ---------- Favoritas / notas ---------- */
 .songitem .fav { color: var(--accent); display: inline-flex; }
 .iconbtn.faved { color: var(--accent); }
+#vTabs.faved { color: var(--accent); border-color: var(--accent); }
 .pnote {
   font-size: 12.5px; color: var(--pill-ink); background: var(--pill-bg);
   border-radius: 7px; padding: 2px 8px; margin-top: 4px;
@@ -954,6 +955,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <div class="vt" id="vTitle"></div>
         <div class="va" id="vArtist"></div>
         <div class="vn" id="vNote"></div>
+        <div class="vn" id="vCapoBadge"></div>
       </div>
       <button class="iconbtn playbtn" id="vScrollPlay" title="Rolagem automática" aria-label="Ligar ou pausar rolagem automática">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -1081,6 +1083,10 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         Playlist
       </button>
+      <button class="btn sm subtle" id="vTabs">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+        <span id="vTabsLabel">Esconder tabs</span>
+      </button>
       <button class="btn sm subtle" id="vEdit">Editar</button>
       <button class="btn sm danger" id="vDelete">Excluir</button>
     </div>
@@ -1092,6 +1098,12 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <button id="vTransReset" title="Tom original" aria-label="Voltar ao tom original">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       </button>
+    </div>
+    <label>Capotraste</label>
+    <div class="toolgroup" style="width:max-content">
+      <button id="vCapoDown" aria-label="Capotraste uma casa abaixo">−</button>
+      <span class="val" id="vCapoVal"></span>
+      <button id="vCapoUp" aria-label="Capotraste uma casa acima">+</button>
     </div>
     <label>Tamanho da fonte</label>
     <div class="toolgroup" style="width:max-content">
@@ -1674,7 +1686,8 @@ async function saveSong(parsed) {
     id: existing ? existing.id : uid(),
     title: parsed.title, artist: parsed.artist,
     artistSlug: parsed.artistSlug || '', songSlug: parsed.songSlug || '',
-    originalKey: parsed.originalKey || 'C', capo: parsed.capo || '',
+    originalKey: parsed.originalKey || 'C',
+    capo: parsed.capo || (existing ? existing.capo || '' : ''), // reimportar não apaga capo definido pelo usuário
     transpose: existing ? (existing.transpose || 0) : 0,
     favorite: existing ? !!existing.favorite : false,
     content: parsed.content,
@@ -1784,7 +1797,7 @@ function songRow(s, snip) {
       ${snip ? `<div class="snip">…${escHtml(snip)}…</div>` : ''}
     </div>
     ${s.favorite ? `<span class="fav">${svg(I.heartFill, 16)}</span>` : ''}
-    <span class="pill">${escHtml(currentKey(s))}</span>
+    <span class="pill">${escHtml(finalKey(s))}</span>
     <span class="rowic">${svg(I.chevron, 17)}</span>`;
   el.addEventListener('click', () => openViewer(s.id));
   return el;
@@ -1891,6 +1904,14 @@ let fontSize = 14;
 const TOKEN_G = /\u0011[^\u0012]*\u0012/g;
 const stripTk = s => s.replace(/[\u0011\u0012]/g, '');
 const visLen = s => stripTk(s).length;
+/* tabs não são marcadas no conteúdo salvo (o parser achata o <span class="tablatura">),
+ * então linhas de tablatura são detectadas por heurística: cordas com traços */
+const isTabLine = v => v.includes('|-') || v.includes('-|');
+const hasTabs = content => content.split('\n').some(l => isTabLine(stripTk(l)));
+function stripTabs(content) {
+  return content.split('\n').filter(l => !isTabLine(stripTk(l))).join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
 /* recorta a faixa de colunas visíveis [from, to) preservando tokens inteiros;
  * acorde que atravessa o corte vai para o segmento seguinte */
 function sliceTokens(s, from, to) {
@@ -1946,16 +1967,15 @@ function wrapContent(content, cols) {
   if (!isFinite(cols) || cols < 12) return content;
   const src = content.split('\n');
   const out = [];
-  const isTab = v => v.includes('|-') || v.includes('-|');
   const isPure = ln => ln.indexOf(CH_OPEN) !== -1 && ln.replace(TOKEN_G, '').trim() === '';
   for (let i = 0; i < src.length; i++) {
     const cur = src[i];
     const vis = stripTk(cur);
-    if (isTab(vis)) { out.push(cur); continue; }
+    if (isTabLine(vis)) { out.push(cur); continue; }
     if (isPure(cur) && i + 1 < src.length) {
       const next = src[i + 1];
       const nvis = stripTk(next);
-      if (!isPure(next) && !isTab(nvis) && nvis.trim() !== '') {
+      if (!isPure(next) && !isTabLine(nvis) && nvis.trim() !== '') {
         if (visLen(cur) > cols || visLen(next) > cols) wrapPair(cur, next, cols, out);
         else out.push(cur, next);
         i++;
@@ -1996,6 +2016,17 @@ function keyWithOffset(s, n) {
   return n ? transposeChord(s.originalKey, n, preferFlatFor(s.originalKey, n)) : s.originalKey;
 }
 function currentKey(s) { return keyWithOffset(s, s.transpose || 0); }
+/* casa do capotraste: aceita o texto importado ("Capotraste na 2ª casa") ou número */
+function capoFret(s) {
+  if (typeof s.capo === 'number') return s.capo || 0;
+  const m = /(\d+)/.exec(s.capo || '');
+  return m ? +m[1] : 0;
+}
+/* tom que soa de fato: forma dos acordes elevada pelo capotraste */
+function soundingKey(shapeKey, capo) {
+  return capo ? transposeChord(shapeKey, capo, preferFlatFor(shapeKey, capo)) : shapeKey;
+}
+function finalKey(s) { return soundingKey(currentKey(s), capoFret(s)); }
 /* tom da música dentro de uma playlist: override em pl.keys[songId], senão o global */
 function plOffset(pl, s) {
   return pl?.keys && s.id in pl.keys ? pl.keys[s.id] : (s.transpose || 0);
@@ -2040,21 +2071,32 @@ function renderViewer() {
   const pl0 = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
   const n = pl0 ? plOffset(pl0, s) : (s.transpose || 0);
   const plKeyed = !!(pl0?.keys && s.id in pl0.keys);
-  const keyLabel = keyWithOffset(s, n) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '') + (plKeyed ? ' · na playlist' : '');
+  const shapeKey = keyWithOffset(s, n);
+  const capo = capoFret(s);
+  const keyLabel = soundingKey(shapeKey, capo) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '') + (plKeyed ? ' · na playlist' : '');
   $('#vKey').textContent = keyLabel;
   $('#vStageLabel').textContent = $('#viewer').classList.contains('stage') ? 'Sair do modo palco' : 'Entrar no modo palco';
-  $('#vCapo').textContent = s.capo ? `· ${s.capo}` : '';
+  $('#vCapo').textContent = capo ? `· com capotraste os acordes ficam em ${shapeKey}` : '';
+  $('#vCapoVal').textContent = capo ? `${capo}ª casa` : 'sem';
+  const capoEl = $('#vCapoBadge');
+  capoEl.textContent = capo ? `Capotraste na ${capo}ª casa` : '';
+  capoEl.style.display = capo ? 'inline-block' : 'none';
   $('#vFontVal').textContent = fontSize + 'px';
   $('#vScrollVal').textContent = scrollSpeed + '%';
   $('#vFav').classList.toggle('faved', !!s.favorite);
   $('#vFavPath').setAttribute('fill', s.favorite ? 'currentColor' : 'none');
   $('#vFavLabel').textContent = s.favorite ? 'Favorita' : 'Favoritar';
+  // toggle de tablaturas: só aparece se a música tem alguma linha de tab
+  $('#vTabs').style.display = hasTabs(s.content) ? '' : 'none';
+  $('#vTabs').classList.toggle('faved', !!s.hideTabs);
+  $('#vTabsLabel').textContent = s.hideTabs ? 'Mostrar tabs' : 'Esconder tabs';
   // nota da música nesta playlist (ex.: "capo na 2ª", "começa no refrão")
   const noteEl = $('#vNote');
   const note = pl0?.notes?.[s.id] || '';
   noteEl.textContent = note;
   noteEl.style.display = note ? 'inline-block' : 'none';
-  const content = transposeContent(s.content, n, s.originalKey);
+  let content = transposeContent(s.content, n, s.originalKey);
+  if (s.hideTabs) content = stripTabs(content);
   $('#vpre').style.fontSize = fontSize + 'px';
   const wrapped = wrapContent(content, viewerCols());
   $('#vpre').innerHTML = escHtml(wrapped).replace(TOKEN_RE, '<b class="ch">$1</b>');
@@ -2091,6 +2133,17 @@ $('#vBack').addEventListener('click', closeViewer);
 $('#vTransUp').addEventListener('click', () => setTranspose(1));
 $('#vTransDown').addEventListener('click', () => setTranspose(-1));
 $('#vTransReset').addEventListener('click', () => setTranspose(0, true));
+/* capotraste é da música (não da playlist): muda onde ela soa, em todo lugar */
+async function setCapo(delta) {
+  const s = vSong(); if (!s) return;
+  const c = Math.max(0, Math.min(11, capoFret(s) + delta));
+  s.capo = c ? `Capotraste na ${c}ª casa` : '';
+  s.updatedAt = Date.now();
+  await dbPut('songs', s);
+  renderViewer();
+}
+$('#vCapoUp').addEventListener('click', () => setCapo(1));
+$('#vCapoDown').addEventListener('click', () => setCapo(-1));
 $('#vFontUp').addEventListener('click', () => setFont(1));
 $('#vFontDown').addEventListener('click', () => setFont(-1));
 async function setFont(d) {
@@ -2107,6 +2160,16 @@ $('#vFav').addEventListener('click', async () => {
   await reloadCache();
   renderViewer();
   toast(s.favorite ? 'Adicionada às favoritas' : 'Removida das favoritas', 1600);
+});
+
+/* esconder/mostrar tablaturas desta música (persiste e sincroniza) */
+$('#vTabs').addEventListener('click', async () => {
+  const s = vSong(); if (!s) return;
+  s.hideTabs = !s.hideTabs;
+  s.updatedAt = Date.now();
+  await dbPut('songs', s);
+  renderViewer();
+  toast(s.hideTabs ? 'Tablaturas ocultas' : 'Tablaturas visíveis', 1600);
 });
 
 /* modo palco: tela cheia de cifra, 2 colunas no iPad em paisagem */
@@ -2428,7 +2491,7 @@ function renderPlScreen() {
 }
 function plsKeyPill(pl, s) {
   const keyed = !!(pl.keys && s.id in pl.keys);
-  return `<span class="pill${keyed ? ' acc' : ''}"${keyed ? ' title="Tom desta playlist"' : ''}>${escHtml(keyWithOffset(s, plOffset(pl, s)))}</span>`;
+  return `<span class="pill${keyed ? ' acc' : ''}"${keyed ? ' title="Tom desta playlist"' : ''}>${escHtml(soundingKey(keyWithOffset(s, plOffset(pl, s)), capoFret(s)))}</span>`;
 }
 function plsCard(pl, s, ids, i) {
   const note = pl.notes?.[s.id] || '';
@@ -2841,7 +2904,7 @@ function renderRecentImports() {
       <h3>${escHtml(s.title)}</h3>
       <p class="art">${escHtml(s.artist)}</p>
       <div class="foot">
-        <div class="tags"><span>Tom: ${escHtml(currentKey(s))}</span>${s.capo ? `<span>Capo</span>` : ''}</div>
+        <div class="tags"><span>Tom: ${escHtml(finalKey(s))}</span>${capoFret(s) ? `<span>Capo ${capoFret(s)}ª</span>` : ''}</div>
         <span class="ago">${timeAgo(s.createdAt)}</span>
       </div>`;
     el.addEventListener('click', () => openViewer(s.id));
