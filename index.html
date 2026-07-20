@@ -1818,7 +1818,11 @@ $('#libChips').addEventListener('click', e => {
   setFilter(c.dataset.f);
   renderSearch();
 });
-$('#libSearch').addEventListener('input', () => renderSearch());
+let libSearchT = null;
+$('#libSearch').addEventListener('input', () => {
+  clearTimeout(libSearchT);
+  libSearchT = setTimeout(renderSearch, 120); // evita recalcular a cada tecla enquanto digita rápido
+});
 $('#libSearch').addEventListener('keydown', e => { if (e.key === 'Enter') saveRecent($('#libSearch').value.trim()); });
 $('#recentClear').addEventListener('click', async () => {
   RECENTS = [];
@@ -1845,28 +1849,35 @@ function renderRecents() {
   }
 }
 
+/* normalizar a letra inteira é caro (Unicode NFD numa string grande) — cacheia por
+ * música e só recalcula se o conteúdo mudou, pra não pesar a cada tecla digitada */
+const lyricsCache = new Map(); // song.id -> { content, plain, norm }
+function lyricsIndex(s) {
+  const c = lyricsCache.get(s.id);
+  if (c && c.content === s.content) return c;
+  const plain = s.content.replace(TOKEN_RE, '');
+  const entry = { content: s.content, plain, norm: norm(plain) };
+  lyricsCache.set(s.id, entry);
+  return entry;
+}
 function searchSongs(q, filter) {
   if (!q) return SONGS.map(s => ({ s }));
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const out = [];
   for (const s of SONGS) {
     const nt = norm(s.title), na = norm(s.artist);
-    const lyrics = filter === 'all' || filter === 'lyrics'
-      ? norm(s.content.replace(TOKEN_RE, '')) : '';
-    let score = 0, snip = '';
+    let score = 0, snip = '', lx = null;
+    const getLx = () => lx || (lx = lyricsIndex(s)); // só normaliza a letra se título/artista não bateram
     const okAll = terms.every(t => {
       if ((filter === 'all' || filter === 'title') && nt.includes(t)) { score += 3; return true; }
       if ((filter === 'all' || filter === 'artist') && na.includes(t)) { score += 2; return true; }
-      if (lyrics && lyrics.includes(t)) { score += 1; return true; }
+      if ((filter === 'all' || filter === 'lyrics') && getLx().norm.includes(t)) { score += 1; return true; }
       return false;
     });
     if (!okAll) continue;
-    if (score <= terms.length && lyrics) { // match veio da letra → mostrar trecho
-      const i = lyrics.indexOf(terms[0]);
-      if (i >= 0) {
-        const plain = s.content.replace(TOKEN_RE, '');
-        snip = plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
-      }
+    if (score <= terms.length && lx) { // match veio da letra → mostrar trecho
+      const i = lx.norm.indexOf(terms[0]);
+      if (i >= 0) snip = lx.plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
     }
     out.push({ s, score, snip });
   }
