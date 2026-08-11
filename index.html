@@ -237,17 +237,6 @@ main { padding: 22px 18px calc(96px + var(--safe-bottom)); max-width: 1024px; ma
   width: 4px; height: 4px; border-radius: 99px; background: var(--accent);
 }
 
-#fab {
-  position: fixed; right: 20px; bottom: calc(84px + var(--safe-bottom)); z-index: 45;
-  width: 58px; height: 58px; border-radius: 99px;
-  background: var(--accent); color: var(--accent-ink);
-  display: none; place-items: center;
-  box-shadow: 0 10px 26px rgba(53, 37, 205, .35);
-  transition: transform .15s var(--ease), background .2s;
-}
-#fab.show { display: grid; }
-#fab:active { transform: scale(.92); background: var(--accent-hi); }
-
 .view { display: none; }
 .view.active { display: block; animation: viewIn .22s var(--ease); }
 @keyframes viewIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
@@ -753,7 +742,6 @@ html, body { overflow-x: hidden; max-width: 100%; }
 @media (max-width: 374px) {
   #tabbar button { font-size: 9.5px; letter-spacing: .02em; }
   .songitem .pill { display: none; }
-  #fab { width: 52px; height: 52px; right: 14px; }
 }
 </style>
 </head>
@@ -956,10 +944,6 @@ html, body { overflow-x: hidden; max-width: 100%; }
     </div>
   </section>
 </main>
-
-<button id="fab" aria-label="Importar cifras">
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-</button>
 
 <nav id="tabbar">
   <button data-view="home" class="active" aria-label="Início">
@@ -1281,7 +1265,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <p class="muted" id="offlineStatus">Verificando…</p>
       <p class="muted" style="margin-top:8px">
         No iPad/iPhone: abra no Safari e toque em <b>Compartilhar → Adicionar à Tela de Início</b>.<br><br>
-        No Android: abra no Chrome e toque no menu <b>⋮ → Adicionar à tela inicial</b> (ou <b>Instalar app</b>, se aparecer direto na barra de endereço).<br><br>
+        No Android: abra no Chrome e toque no menu <b>⋮ → Instalar e criar atalho</b>.<br><br>
         <b>Importante:</b> o app instalado tem armazenamento <b>separado</b> do navegador — abra-o <b>uma vez com internet</b> para ele se preparar para o offline, e use a <b>Sincronização</b> (acima) ou um backup para trazer as cifras que você importou no navegador.<br><br>
         Sem hospedagem: copie o <code>index.html</code> para um leitor de HTML com JavaScript e armazenamento (ex.: Koder, Documents no iOS; ou qualquer navegador com suporte a arquivos locais no Android). Em todos os casos, faça <b>backups periódicos</b>.
       </p>
@@ -1761,7 +1745,6 @@ function showView(name) {
   currentView = name;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
-  $('#fab').classList.toggle('show', name === 'home');
   if (name === 'home') renderHome();
   if (name === 'search') renderSearch();
   if (name === 'playlists') renderPlaylists();
@@ -1769,7 +1752,6 @@ function showView(name) {
   if (name === 'import') renderRecentImports();
 }
 $$('#tabbar button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
-$('#fab').addEventListener('click', () => showView('import'));
 $('#emptyImportBtn').addEventListener('click', () => showView('import'));
 $('#homeSeeAll').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('all'); showView('search'); });
 $('#homeSeeArtists').addEventListener('click', () => showView('artists'));
