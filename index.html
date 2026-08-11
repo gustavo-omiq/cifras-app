@@ -1280,8 +1280,10 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <h2>Uso offline</h2>
       <p class="muted" id="offlineStatus">Verificando…</p>
       <p class="muted" style="margin-top:8px">
-        No iPad/iPhone: abra no Safari e toque em <b>Compartilhar → Adicionar à Tela de Início</b>. <b>Importante:</b> o app instalado tem armazenamento <b>separado</b> do Safari — abra-o <b>uma vez com internet</b> para ele se preparar para o offline, e use a <b>Sincronização</b> (acima) ou um backup para trazer as cifras que você importou no navegador.<br><br>
-        Sem hospedagem: copie o <code>index.html</code> para um leitor de HTML com JavaScript e armazenamento (ex.: Koder, Documents). Em todos os casos, faça <b>backups periódicos</b>.
+        No iPad/iPhone: abra no Safari e toque em <b>Compartilhar → Adicionar à Tela de Início</b>.<br><br>
+        No Android: abra no Chrome e toque no menu <b>⋮ → Adicionar à tela inicial</b> (ou <b>Instalar app</b>, se aparecer direto na barra de endereço).<br><br>
+        <b>Importante:</b> o app instalado tem armazenamento <b>separado</b> do navegador — abra-o <b>uma vez com internet</b> para ele se preparar para o offline, e use a <b>Sincronização</b> (acima) ou um backup para trazer as cifras que você importou no navegador.<br><br>
+        Sem hospedagem: copie o <code>index.html</code> para um leitor de HTML com JavaScript e armazenamento (ex.: Koder, Documents no iOS; ou qualquer navegador com suporte a arquivos locais no Android). Em todos os casos, faça <b>backups periódicos</b>.
       </p>
     </div>
 
@@ -3227,9 +3229,10 @@ $('#wipeBtn').addEventListener('click', async () => {
 });
 async function renderStorageInfo() {
   let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
-  // mesmo cálculo que o Worker usa pra decidir o HTTP 413 (limite de payload da sincronização)
+  // o Worker comprime antes de guardar (gzip), então o limite real de 24 MB se
+  // aplica depois da compressão — este número (sem comprimir) é só referência
   const payloadLen = JSON.stringify({ songs: SONGS, playlists: PLAYLISTS, tombstones: TOMBS }).length;
-  txt += ` Dados de sincronização: ${(payloadLen / 1048576).toFixed(1)} MB de 24 MB permitidos.`;
+  txt += ` Dados de sincronização: ${(payloadLen / 1048576).toFixed(1)} MB (comprimidos automaticamente pelo Worker antes de guardar).`;
   try {
     if (navigator.storage?.estimate) {
       const e = await navigator.storage.estimate();
@@ -3366,7 +3369,7 @@ async function doSync(manual) {
     let msg = e.message;
     if (/HTTP 404/.test(msg)) msg = 'HTTP 404 — a URL do Worker parece errada (não é a URL do app!). Confira nos Ajustes ou toque em "Usar padrão".';
     if (/HTTP 401/.test(msg)) msg = 'HTTP 401 — a chave de sincronização está vazia ou curta demais.';
-    if (/HTTP 413/.test(msg)) msg = 'HTTP 413 — sua biblioteca passou do limite de sincronização. Veja o tamanho em Ajustes → Armazenamento.';
+    if (/HTTP 413/.test(msg)) msg = 'HTTP 413 — sua biblioteca passou do limite de sincronização mesmo comprimida. Veja o tamanho em Ajustes → Armazenamento.';
     setSyncStatus('Falha ao sincronizar: ' + msg);
     if (manual) toast('Erro ao sincronizar: ' + msg, 5000);
   } finally {

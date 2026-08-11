@@ -10,7 +10,38 @@
  */
 
 const KEY_MIN_LEN = 16;
-const MAX_DOC_BYTES = 24 * 1024 * 1024; // pertinho do teto de 25 MB do KV (valor por chave)
+const MAX_DOC_BYTES = 24 * 1024 * 1024; // pertinho do teto de 25 MB do KV (valor por chave) — aplicado DEPOIS da compressão
+
+/* Compressão é só um detalhe de armazenamento do Worker — o cliente sempre manda/recebe
+ * JSON puro, sem mudança de protocolo. Grava comprimido no KV, descomprime na leitura.
+ * Detecta pelo cabeçalho gzip (1f 8b) pra continuar lendo entradas antigas (gravadas sem
+ * compressão, antes desta mudança) sem quebrar nada que já está sincronizado. */
+const GZIP_MAGIC_0 = 0x1f, GZIP_MAGIC_1 = 0x8b;
+async function gzip(text) {
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  writer.write(new TextEncoder().encode(text));
+  writer.close();
+  return new Response(cs.readable).arrayBuffer();
+}
+async function gunzip(bytes) {
+  const ds = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const buf = await new Response(ds.readable).arrayBuffer();
+  return new TextDecoder().decode(buf);
+}
+function looksGzipped(bytes) {
+  const u8 = new Uint8Array(bytes);
+  return u8.length >= 2 && u8[0] === GZIP_MAGIC_0 && u8[1] === GZIP_MAGIC_1;
+}
+async function readDoc(kvKey, env) {
+  const raw = await env.SYNC_KV.get(kvKey, 'arrayBuffer');
+  if (!raw) return null;
+  const text = looksGzipped(raw) ? await gunzip(raw) : new TextDecoder().decode(raw);
+  return JSON.parse(text);
+}
 
 function corsHeaders(origin) {
   // Pages do app, desenvolvimento local e file:// (leitores de HTML mandam Origin: null)
@@ -42,7 +73,7 @@ async function handleSync(req, env, url, cors) {
   if (!kvKey) return json({ error: 'chave de sincronização ausente ou curta demais' }, 401, cors);
 
   if (req.method === 'GET') {
-    const cur = await env.SYNC_KV.get(kvKey, 'json');
+    const cur = await readDoc(kvKey, env);
     const since = parseInt(url.searchParams.get('since') || '-1', 10);
     if (!cur) return json({ rev: 0, data: null }, 200, cors);
     if (cur.rev === since) return new Response(null, { status: 204, headers: cors });
@@ -54,15 +85,15 @@ async function handleSync(req, env, url, cors) {
     try { body = await req.json(); } catch { return json({ error: 'JSON inválido' }, 400, cors); }
     if (typeof body.baseRev !== 'number' || body.data == null)
       return json({ error: 'esperado { baseRev, data }' }, 400, cors);
-    const cur = await env.SYNC_KV.get(kvKey, 'json');
+    const cur = await readDoc(kvKey, env);
     const curRev = cur ? cur.rev : 0;
     if (body.baseRev !== curRev)
       return json(cur || { rev: 0, data: null }, 409, cors);
     const doc = { rev: curRev + 1, updatedAt: Date.now(), data: body.data };
-    const raw = JSON.stringify(doc);
-    if (raw.length > MAX_DOC_BYTES)
-      return json({ error: 'biblioteca grande demais para sincronizar' }, 413, cors);
-    await env.SYNC_KV.put(kvKey, raw);
+    const compressed = await gzip(JSON.stringify(doc));
+    if (compressed.byteLength > MAX_DOC_BYTES)
+      return json({ error: 'biblioteca grande demais para sincronizar (mesmo comprimida)' }, 413, cors);
+    await env.SYNC_KV.put(kvKey, compressed);
     return json({ rev: doc.rev }, 200, cors);
   }
 
