@@ -3229,10 +3229,22 @@ $('#wipeBtn').addEventListener('click', async () => {
 });
 async function renderStorageInfo() {
   let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
-  // o Worker comprime antes de guardar (gzip), então o limite real de 24 MB se
-  // aplica depois da compressão — este número (sem comprimir) é só referência
-  const payloadLen = JSON.stringify({ songs: SONGS, playlists: PLAYLISTS, tombstones: TOMBS }).length;
-  txt += ` Dados de sincronização: ${(payloadLen / 1048576).toFixed(1)} MB (comprimidos automaticamente pelo Worker antes de guardar).`;
+  // o app manda JSON puro pro Worker — a compressão (gzip) é só do Worker pro KV,
+  // invisível aqui. Estimamos o tamanho comprimido localmente só pra mostrar
+  // (não muda o que é realmente enviado).
+  const payloadJson = JSON.stringify({ songs: SONGS, playlists: PLAYLISTS, tombstones: TOMBS });
+  txt += ` Dados de sincronização: ${(payloadJson.length / 1048576).toFixed(1)} MB`;
+  try {
+    if (typeof CompressionStream === 'function') {
+      const cs = new CompressionStream('gzip');
+      const writer = cs.writable.getWriter();
+      writer.write(new TextEncoder().encode(payloadJson));
+      writer.close();
+      const compressed = await new Response(cs.readable).arrayBuffer();
+      txt += ` (≈ ${(compressed.byteLength / 1048576).toFixed(1)} MB comprimidos — é isso que o Worker guarda no KV)`;
+    }
+  } catch {}
+  txt += '.';
   try {
     if (navigator.storage?.estimate) {
       const e = await navigator.storage.estimate();
