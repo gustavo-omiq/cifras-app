@@ -10,7 +10,7 @@
  */
 
 const KEY_MIN_LEN = 16;
-const MAX_DOC_BYTES = 20 * 1024 * 1024; // margem sob o limite de 25 MB do KV
+const MAX_DOC_BYTES = 24 * 1024 * 1024; // pertinho do teto de 25 MB do KV (valor por chave)
 
 function corsHeaders(origin) {
   // Pages do app, desenvolvimento local e file:// (leitores de HTML mandam Origin: null)

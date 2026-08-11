@@ -3227,10 +3227,13 @@ $('#wipeBtn').addEventListener('click', async () => {
 });
 async function renderStorageInfo() {
   let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
+  // mesmo cálculo que o Worker usa pra decidir o HTTP 413 (limite de payload da sincronização)
+  const payloadLen = JSON.stringify({ songs: SONGS, playlists: PLAYLISTS, tombstones: TOMBS }).length;
+  txt += ` Dados de sincronização: ${(payloadLen / 1048576).toFixed(1)} MB de 24 MB permitidos.`;
   try {
     if (navigator.storage?.estimate) {
       const e = await navigator.storage.estimate();
-      txt += ` Uso: ${(e.usage / 1048576).toFixed(1)} MB.`;
+      txt += ` Uso total no aparelho (inclui fotos, não sincronizadas): ${(e.usage / 1048576).toFixed(1)} MB.`;
     }
   } catch {}
   $('#storageInfo').textContent = txt;
@@ -3363,6 +3366,7 @@ async function doSync(manual) {
     let msg = e.message;
     if (/HTTP 404/.test(msg)) msg = 'HTTP 404 — a URL do Worker parece errada (não é a URL do app!). Confira nos Ajustes ou toque em "Usar padrão".';
     if (/HTTP 401/.test(msg)) msg = 'HTTP 401 — a chave de sincronização está vazia ou curta demais.';
+    if (/HTTP 413/.test(msg)) msg = 'HTTP 413 — sua biblioteca passou do limite de sincronização. Veja o tamanho em Ajustes → Armazenamento.';
     setSyncStatus('Falha ao sincronizar: ' + msg);
     if (manual) toast('Erro ao sincronizar: ' + msg, 5000);
   } finally {
