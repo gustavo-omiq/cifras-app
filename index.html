@@ -554,6 +554,22 @@ input:focus, textarea:focus {
 .songcard .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 6px; }
 .songcard .pnote { margin-top: 8px; }
 
+/* ---------- Tela do artista ---------- */
+#artistscreen {
+  position: fixed; inset: 0; z-index: 55; background: var(--bg);
+  display: none; flex-direction: column;
+}
+#artistscreen.open { display: flex; animation: viewerIn .25s var(--ease); }
+#ashead {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: calc(6px + var(--safe-top)) 10px 10px;
+}
+#ashead .l1 { display: flex; align-items: center; gap: 6px; }
+#ashead .titles { flex: 1; min-width: 0; padding: 0 2px; }
+#ashead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ashead .va { font-size: 13px; color: var(--muted); }
+#asscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+
 /* ---------- Visualizador ---------- */
 #viewer {
   position: fixed; inset: 0; z-index: 60; background: var(--bg);
@@ -845,6 +861,22 @@ html, body { overflow-x: hidden; max-width: 100%; }
     </div>
   </section>
 
+  <!-- ================= ARTISTAS ================= -->
+  <section id="view-artists" class="view">
+    <h1 class="display">Artistas</h1>
+    <p class="lead" style="margin-bottom:16px">Todos os artistas com cifras na sua biblioteca.</p>
+    <div class="searchwrap" style="margin-bottom:16px">
+      <svg class="sic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="search" id="artistSearch" placeholder="Filtrar artistas…" autocomplete="off" aria-label="Filtrar artistas">
+    </div>
+    <div class="artist-grid" id="artistsGrid"></div>
+    <div id="artistsEmpty" class="empty" style="display:none">
+      <svg class="eico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <p>Sua biblioteca está vazia.</p>
+      <p class="sub">Use a aba <b>Importar</b> para baixar cifras do CifraClub.</p>
+    </div>
+  </section>
+
   <!-- ================= IMPORTAR ================= -->
   <section id="view-import" class="view">
     <h1 class="display">Importar</h1>
@@ -938,6 +970,9 @@ html, body { overflow-x: hidden; max-width: 100%; }
   </button>
   <button data-view="playlists" aria-label="Playlists">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>Playlists
+  </button>
+  <button data-view="artists" aria-label="Artistas">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Artistas
   </button>
   <button data-view="import" aria-label="Importar">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Importar
@@ -1055,6 +1090,22 @@ html, body { overflow-x: hidden; max-width: 100%; }
     </div>
   </div>
   <div id="plsscroll"><div id="plDetailSongs"></div></div>
+</div>
+
+<!-- ================= TELA DO ARTISTA ================= -->
+<div id="artistscreen">
+  <div id="ashead">
+    <div class="l1">
+      <button class="iconbtn" id="asBack" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <div class="titles">
+        <div class="vt" id="asName"></div>
+        <div class="va" id="asCount"></div>
+      </div>
+    </div>
+  </div>
+  <div id="asscroll"><div id="asSongs" class="songlist"></div></div>
 </div>
 
 <div class="modal-bg" id="modalPlMenu">
@@ -1712,13 +1763,14 @@ function showView(name) {
   if (name === 'home') renderHome();
   if (name === 'search') renderSearch();
   if (name === 'playlists') renderPlaylists();
+  if (name === 'artists') renderArtistsView();
   if (name === 'import') renderRecentImports();
 }
 $$('#tabbar button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 $('#fab').addEventListener('click', () => showView('import'));
 $('#emptyImportBtn').addEventListener('click', () => showView('import'));
 $('#homeSeeAll').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('all'); showView('search'); });
-$('#homeSeeArtists').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('artist'); showView('search'); });
+$('#homeSeeArtists').addEventListener('click', () => showView('artists'));
 $('#impSeeAll').addEventListener('click', () => { $('#libSearch').value = ''; setFilter('all'); showView('search'); });
 
 /* re-render das listas visíveis (após mudanças de dados/fotos) */
@@ -1726,7 +1778,9 @@ function rerenderLists() {
   if (currentView === 'home') renderHome();
   if (currentView === 'search') renderSearch();
   if (currentView === 'playlists') renderPlaylists();
+  if (currentView === 'artists') renderArtistsView();
   if (currentView === 'import') renderRecentImports();
+  if (artistScreenKey) renderArtistScreen();
 }
 
 /* ------------------------- Início ------------------------- */
@@ -1734,16 +1788,33 @@ function greetingNow() {
   const h = new Date().getHours();
   return h < 6 ? 'Boa noite.' : h < 12 ? 'Bom dia.' : h < 18 ? 'Boa tarde.' : 'Boa noite.';
 }
+/* agrupa por artistSlug (CifraClub) ou nome normalizado (cifras manuais) —
+ * mesma chave usada pra abrir a lista de músicas do artista */
+function artistKey(s) { return s.artistSlug || norm(s.artist); }
 function artistGroups() {
   const map = new Map();
   for (const s of SONGS) {
-    const key = s.artistSlug || norm(s.artist);
-    if (!map.has(key)) map.set(key, { name: s.artist, slug: s.artistSlug, count: 0, last: 0 });
+    const key = artistKey(s);
+    if (!map.has(key)) map.set(key, { key, name: s.artist, slug: s.artistSlug, count: 0, last: 0 });
     const g = map.get(key);
     g.count++;
     g.last = Math.max(g.last, s.createdAt || 0);
   }
   return Array.from(map.values()).sort((a, b) => b.last - a.last);
+}
+function artistCardEl(g) {
+  const src = artistImgSrc(g.slug);
+  const el = document.createElement('div');
+  el.className = 'artist-card';
+  el.innerHTML = `
+    ${src ? `<img src="${src}" alt="" loading="lazy"${IMG_FALLBACK}>` : `<div class="ph">${escHtml((g.name[0] || '♪').toUpperCase())}</div>`}
+    <div class="ov"></div>
+    <div class="meta">
+      <span class="ct">${g.count} cifra${g.count === 1 ? '' : 's'}</span>
+      <span class="nm">${escHtml(g.name)}</span>
+    </div>`;
+  el.addEventListener('click', () => openArtistScreen(g.key));
+  return el;
 }
 function renderHome() {
   $('#greeting').textContent = greetingNow();
@@ -1759,22 +1830,7 @@ function renderHome() {
   const grid = $('#homeArtists');
   grid.innerHTML = '';
   for (const g of artistGroups().slice(0, 8)) {
-    const src = artistImgSrc(g.slug);
-    const el = document.createElement('div');
-    el.className = 'artist-card';
-    el.innerHTML = `
-      ${src ? `<img src="${src}" alt="" loading="lazy"${IMG_FALLBACK}>` : `<div class="ph">${escHtml((g.name[0] || '♪').toUpperCase())}</div>`}
-      <div class="ov"></div>
-      <div class="meta">
-        <span class="ct">${g.count} cifra${g.count === 1 ? '' : 's'}</span>
-        <span class="nm">${escHtml(g.name)}</span>
-      </div>`;
-    el.addEventListener('click', () => {
-      $('#libSearch').value = g.name;
-      setFilter('artist');
-      showView('search');
-    });
-    grid.appendChild(el);
+    grid.appendChild(artistCardEl(g));
   }
 
   // favoritas
@@ -1849,47 +1905,62 @@ function renderRecents() {
   }
 }
 
-/* normalizar a letra inteira é caro (Unicode NFD numa string grande) — cacheia por
- * música e só recalcula se o conteúdo mudou, pra não pesar a cada tecla digitada */
-const lyricsCache = new Map(); // song.id -> { content, plain, norm }
-function lyricsIndex(s) {
-  const c = lyricsCache.get(s.id);
-  if (c && c.content === s.content) return c;
-  const plain = s.content.replace(TOKEN_RE, '');
-  const entry = { content: s.content, plain, norm: norm(plain) };
-  lyricsCache.set(s.id, entry);
-  return entry;
+/* indexar título/artista/letra é caro (Unicode NFD numa string grande) — cacheia por
+ * música e só recalcula o que mudou, pra não pesar a cada tecla digitada. A letra só
+ * é normalizada se título/artista não bastarem pra bater a busca (ou nunca, se a
+ * música é achada só pelo título — a maioria dos casos). */
+const songIndexCache = new Map(); // song.id -> { title, artist, content, nt, na, lyrics }
+function songIndex(s) {
+  let ix = songIndexCache.get(s.id);
+  if (!ix || ix.title !== s.title || ix.artist !== s.artist || ix.content !== s.content) {
+    ix = { title: s.title, artist: s.artist, content: s.content, nt: norm(s.title), na: norm(s.artist), lyrics: null };
+    songIndexCache.set(s.id, ix);
+  }
+  return ix;
+}
+function lyricsOf(s, ix) {
+  if (!ix.lyrics) {
+    const plain = s.content.replace(TOKEN_RE, '');
+    ix.lyrics = { plain, norm: norm(plain) };
+  }
+  return ix.lyrics;
 }
 function searchSongs(q, filter) {
   if (!q) return SONGS.map(s => ({ s }));
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const out = [];
   for (const s of SONGS) {
-    const nt = norm(s.title), na = norm(s.artist);
-    let score = 0, snip = '', lx = null;
-    const getLx = () => lx || (lx = lyricsIndex(s)); // só normaliza a letra se título/artista não bateram
+    const ix = songIndex(s);
+    let score = 0, snip = '', lyr = null;
+    const getLyr = () => lyr || (lyr = lyricsOf(s, ix));
     const okAll = terms.every(t => {
-      if ((filter === 'all' || filter === 'title') && nt.includes(t)) { score += 3; return true; }
-      if ((filter === 'all' || filter === 'artist') && na.includes(t)) { score += 2; return true; }
-      if ((filter === 'all' || filter === 'lyrics') && getLx().norm.includes(t)) { score += 1; return true; }
+      if ((filter === 'all' || filter === 'title') && ix.nt.includes(t)) { score += 3; return true; }
+      if ((filter === 'all' || filter === 'artist') && ix.na.includes(t)) { score += 2; return true; }
+      if ((filter === 'all' || filter === 'lyrics') && getLyr().norm.includes(t)) { score += 1; return true; }
       return false;
     });
     if (!okAll) continue;
-    if (score <= terms.length && lx) { // match veio da letra → mostrar trecho
-      const i = lx.norm.indexOf(terms[0]);
-      if (i >= 0) snip = lx.plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
+    if (score <= terms.length && lyr) { // match veio da letra → mostrar trecho
+      const i = lyr.norm.indexOf(terms[0]);
+      if (i >= 0) snip = lyr.plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
     }
     out.push({ s, score, snip });
   }
   out.sort((a, b) => b.score - a.score);
   return out;
 }
+/* renderizar a biblioteca inteira de uma vez trava com muitas cifras (é o caso mais
+ * comum: busca vazia = "Todas as cifras"). Mostra por página e cresce sob demanda. */
+const LIB_PAGE = 60;
+let libShown = LIB_PAGE;
+let libSearchKey = null;
 function renderSearch() {
   renderRecents();
   const q = $('#libSearch').value.trim();
+  const key = q + '|' + libFilter;
+  if (key !== libSearchKey) { libSearchKey = key; libShown = LIB_PAGE; }
   const results = searchSongs(q, libFilter);
   const list = $('#libList');
-  list.innerHTML = '';
   $('#libEmpty').style.display = (!SONGS.length) ? '' : 'none';
   list.style.display = SONGS.length ? '' : 'none';
   $('#resultsLabel').textContent = q
@@ -1899,12 +1970,71 @@ function renderSearch() {
     list.innerHTML = '<div class="empty" style="padding:30px 16px">Nada encontrado.</div>';
     return;
   }
-  for (const { s, snip } of results) {
+  const shown = results.slice(0, libShown);
+  const frag = document.createDocumentFragment();
+  for (const { s, snip } of shown) {
     const row = songRow(s, snip);
     if (q) row.addEventListener('click', () => saveRecent(q), { once: true });
-    list.appendChild(row);
+    frag.appendChild(row);
   }
+  if (results.length > shown.length) {
+    const more = document.createElement('button');
+    more.className = 'btn sm ghost';
+    more.style.cssText = 'display:block;width:calc(100% - 32px);margin:10px 16px 20px';
+    more.textContent = `Carregar mais (${results.length - shown.length} restantes)`;
+    more.addEventListener('click', () => { libShown += LIB_PAGE; renderSearch(); });
+    frag.appendChild(more);
+  }
+  list.innerHTML = '';
+  list.appendChild(frag);
 }
+
+/* ------------------------- Artistas ------------------------- */
+let artistSearchT = null;
+$('#artistSearch').addEventListener('input', () => {
+  clearTimeout(artistSearchT);
+  artistSearchT = setTimeout(renderArtistsView, 120);
+});
+function renderArtistsView() {
+  const q = norm($('#artistSearch').value.trim());
+  const groups = artistGroups().sort((a, b) => norm(a.name).localeCompare(norm(b.name)));
+  const filtered = q ? groups.filter(g => norm(g.name).includes(q)) : groups;
+  $('#artistsEmpty').style.display = SONGS.length ? 'none' : '';
+  const grid = $('#artistsGrid');
+  grid.style.display = SONGS.length ? '' : 'none';
+  grid.innerHTML = '';
+  if (SONGS.length && !filtered.length) {
+    grid.innerHTML = '<div class="empty" style="padding:30px 16px;grid-column:1/-1">Nenhum artista encontrado.</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const g of filtered) frag.appendChild(artistCardEl(g));
+  grid.appendChild(frag);
+}
+/* tela do artista: todas as músicas já importadas dele (não busca no CifraClub) */
+let artistScreenKey = null;
+function openArtistScreen(key) {
+  artistScreenKey = key;
+  renderArtistScreen();
+  $('#artistscreen').classList.add('open');
+  $('#asscroll').scrollTop = 0;
+}
+function closeArtistScreen() {
+  $('#artistscreen').classList.remove('open');
+  artistScreenKey = null;
+  renderArtistsView();
+}
+function renderArtistScreen() {
+  const songs = SONGS.filter(s => artistKey(s) === artistScreenKey)
+    .sort((a, b) => norm(a.title).localeCompare(norm(b.title)));
+  if (!songs.length) return closeArtistScreen(); // última cifra do artista foi excluída
+  $('#asName').textContent = songs[0].artist;
+  $('#asCount').textContent = `${songs.length} cifra${songs.length === 1 ? '' : 's'}`;
+  const list = $('#asSongs');
+  list.innerHTML = '';
+  for (const s of songs) list.appendChild(songRow(s));
+}
+$('#asBack').addEventListener('click', closeArtistScreen);
 
 /* ------------------------- visualizador ------------------------- */
 let vSongId = null;
