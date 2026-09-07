@@ -1194,7 +1194,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 
     <div class="card">
       <h2>Biblioteca</h2>
-      <p class="muted" style="margin-bottom:8px">Baixa de novo, do CifraClub, todas as cifras importadas de lá — útil quando a cifra original recebe correções. Tom transposto e favoritas são preservados.</p>
+      <p class="muted" style="margin-bottom:8px">Baixa de novo, do CifraClub, todas as cifras importadas de lá, começando pelas mais recentes — útil quando a cifra original recebe correções ou veio incompleta. Tom transposto, favoritas e capotraste são preservados; pode cancelar a qualquer momento.</p>
       <button class="btn" id="updateAllBtn">Atualizar cifras do CifraClub</button>
       <p class="muted" id="updateAllStatus" style="margin-top:8px"></p>
     </div>
@@ -3283,7 +3283,10 @@ let updateAllRunning = false, updateAllCancel = false;
 $('#updateAllBtn').addEventListener('click', async () => {
   const btn = $('#updateAllBtn'), status = $('#updateAllStatus');
   if (updateAllRunning) { updateAllCancel = true; return; }
-  const targets = SONGS.filter(s => s.artistSlug && s.songSlug);
+  // das mais recentes para as mais antigas: as importadas depois da mudança do site
+  // (que vinham truncadas) são corrigidas primeiro — dá pra cancelar quando chegar nas antigas
+  const targets = SONGS.filter(s => s.artistSlug && s.songSlug)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   if (!targets.length) return toast('Nenhuma cifra do CifraClub na biblioteca');
   updateAllRunning = true; updateAllCancel = false;
   btn.textContent = 'Cancelar atualização';
