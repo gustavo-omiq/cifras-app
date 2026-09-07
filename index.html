@@ -979,6 +979,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <div class="va" id="vArtist"></div>
         <div class="vn" id="vNote"></div>
         <div class="vn" id="vCapoBadge"></div>
+        <div class="chips" id="vVersions" style="display:none;margin:6px 0 0"></div>
       </div>
       <button class="iconbtn playbtn" id="vScrollPlay" title="Rolagem automática" aria-label="Ligar ou pausar rolagem automática">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -1416,7 +1417,31 @@ async function reloadCache() {
   SONGS = (await dbAll('songs')).sort((a,b) =>
     norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title)));
   PLAYLISTS = (await dbAll('playlists')).sort((a,b) => norm(a.name).localeCompare(norm(b.name)));
+  buildGroups();
 }
+/* Versões da mesma música (Principal, Simplificada…) formam um grupo: cada uma continua
+ * um registro próprio (tom, capo, conteúdo), mas as listas mostram uma entrada só e o
+ * visualizador tem um seletor. Cifras manuais (sem slug) são um grupo de um só. */
+const groupKey = s => s.artistSlug && s.songSlug ? s.artistSlug + '/' + s.songSlug : 'id:' + s.id;
+let GROUPS = new Map(); // groupKey -> registros, principal primeiro
+let LIB = [];            // uma cifra por grupo — o que as listas mostram
+function buildGroups() {
+  GROUPS = new Map();
+  for (const s of SONGS) {
+    const k = groupKey(s);
+    if (!GROUPS.has(k)) GROUPS.set(k, []);
+    GROUPS.get(k).push(s);
+  }
+  for (const arr of GROUPS.values()) {
+    arr.sort((a, b) => (a.versionSlug ? 1 : 0) - (b.versionSlug ? 1 : 0)
+      || norm(a.versionName || '').localeCompare(norm(b.versionName || '')));
+  }
+  LIB = [...GROUPS.values()].map(arr => arr[0]);
+}
+const versionsOf = s => GROUPS.get(groupKey(s)) || [s];
+const primaryOf = s => versionsOf(s)[0];
+const baseTitle = s => s.versionName ? s.title.replace(/\s*\([^()]*\)\s*$/, '') : s.title;
+let VERPREF = {}; // groupKey -> id da versão preferida (escolhida no seletor)
 /* grava playlist marcando a hora da alteração (mostrado no card) */
 function plPut(pl) { pl.updatedAt = Date.now(); return dbPut('playlists', pl); }
 
@@ -1833,7 +1858,7 @@ function greetingNow() {
 function artistKey(s) { return s.artistSlug || norm(s.artist); }
 function artistGroups() {
   const map = new Map();
-  for (const s of SONGS) {
+  for (const s of LIB) { // uma música por grupo de versões
     const key = artistKey(s);
     if (!map.has(key)) map.set(key, { key, name: s.artist, slug: s.artistSlug, count: 0, last: 0 });
     const g = map.get(key);
@@ -1859,7 +1884,7 @@ function artistCardEl(g) {
 function renderHome() {
   $('#greeting').textContent = greetingNow();
   $('#greetingSub').textContent = SONGS.length
-    ? `${SONGS.length} cifra${SONGS.length === 1 ? '' : 's'} no seu repertório, prontas para tocar.`
+    ? `${LIB.length} cifra${LIB.length === 1 ? '' : 's'} no seu repertório, prontas para tocar.`
     : 'Seu repertório, pronto para a próxima sessão.';
   $('#homeEmpty').style.display = SONGS.length ? 'none' : '';
   $('#homeArtistsWrap').style.display = SONGS.length ? '' : 'none';
@@ -1883,7 +1908,7 @@ function renderHome() {
   // adicionadas recentemente
   const list = $('#homeSongs');
   list.innerHTML = '';
-  const recent = [...SONGS].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
+  const recent = [...LIB].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
   for (const s of recent) list.appendChild(songRow(s));
 }
 function songRow(s, snip) {
@@ -1966,7 +1991,7 @@ function lyricsOf(s, ix) {
   return ix.lyrics;
 }
 function searchSongs(q, filter) {
-  if (!q) return SONGS.map(s => ({ s }));
+  if (!q) return LIB.map(s => ({ s }));
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const out = [];
   for (const s of SONGS) {
@@ -1986,8 +2011,14 @@ function searchSongs(q, filter) {
     }
     out.push({ s, score, snip });
   }
-  out.sort((a, b) => b.score - a.score);
-  return out;
+  // versões da mesma música viram um resultado só (o principal), com a melhor pontuação
+  const best = new Map();
+  for (const r of out) {
+    const p = primaryOf(r.s);
+    const cur = best.get(p.id);
+    if (!cur || r.score > cur.score) best.set(p.id, { ...r, s: p });
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score);
 }
 /* renderizar a biblioteca inteira de uma vez trava com muitas cifras (é o caso mais
  * comum: busca vazia = "Todas as cifras"). Mostra por página e cresce sob demanda. */
@@ -2005,7 +2036,7 @@ function renderSearch() {
   list.style.display = SONGS.length ? '' : 'none';
   $('#resultsLabel').textContent = q
     ? `Resultados (${results.length})`
-    : `Todas as cifras (${SONGS.length})`;
+    : `Todas as cifras (${LIB.length})`;
   if (!results.length && SONGS.length) {
     list.innerHTML = '<div class="empty" style="padding:30px 16px">Nada encontrado.</div>';
     return;
@@ -2065,7 +2096,7 @@ function closeArtistScreen() {
   renderArtistsView();
 }
 function renderArtistScreen() {
-  const songs = SONGS.filter(s => artistKey(s) === artistScreenKey)
+  const songs = LIB.filter(s => artistKey(s) === artistScreenKey)
     .sort((a, b) => norm(a.title).localeCompare(norm(b.title)));
   if (!songs.length) return closeArtistScreen(); // última cifra do artista foi excluída
   $('#asName').textContent = songs[0].artist;
@@ -2216,6 +2247,11 @@ function plOffset(pl, s) {
   return pl?.keys && s.id in pl.keys ? pl.keys[s.id] : (s.transpose || 0);
 }
 function openViewer(songId, context) {
+  if (!context) { // aberto pelas listas: cai na versão preferida (playlists apontam pra versão exata)
+    const s = SONGS.find(x => x.id === songId);
+    const pref = s && VERPREF[groupKey(s)];
+    if (pref && pref !== songId && versionsOf(s).some(v => v.id === pref)) songId = pref;
+  }
   vSongId = songId; vContext = context || null;
   stopAutoScroll();
   $('#viewer').classList.add('open'); // antes de renderizar: a largura precisa existir p/ calcular a quebra
@@ -2249,7 +2285,14 @@ function vSong() { return SONGS.find(s => s.id === vSongId); }
 
 function renderViewer() {
   const s = vSong(); if (!s) return closeViewer();
-  $('#vTitle').textContent = s.title;
+  // seletor de versão (Principal · Simplificada…) quando a música tem mais de uma
+  const vers = versionsOf(s);
+  const vbox = $('#vVersions');
+  vbox.style.display = vers.length > 1 ? '' : 'none';
+  vbox.innerHTML = vers.length > 1
+    ? vers.map(v => `<button class="chip${v.id === s.id ? ' active' : ''}" data-ver="${v.id}">${escHtml(v.versionName || 'Principal')}</button>`).join('')
+    : '';
+  $('#vTitle').textContent = vers.length > 1 ? baseTitle(s) : s.title;
   $('#vArtist').textContent = s.artist;
   // aberto por playlist: o tom pode ter override próprio (pl.keys[songId])
   const pl0 = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
@@ -2317,6 +2360,15 @@ async function setTranspose(delta, reset) {
   renderViewer();
 }
 $('#vBack').addEventListener('click', closeViewer);
+$('#vVersions').addEventListener('click', async e => {
+  const c = e.target.closest('[data-ver]'); if (!c) return;
+  const s = vSong(); if (!s || c.dataset.ver === s.id) return;
+  vSongId = c.dataset.ver;
+  VERPREF[groupKey(s)] = vSongId; // lembra a versão escolhida pra esta música
+  await setSetting('versionPref', VERPREF);
+  renderViewer();
+  $('#vscroll').scrollTop = 0;
+});
 $('#vTransUp').addEventListener('click', () => setTranspose(1));
 $('#vTransDown').addEventListener('click', () => setTranspose(-1));
 $('#vTransReset').addEventListener('click', () => setTranspose(0, true));
@@ -3131,7 +3183,7 @@ $('#pasteImportBtn').addEventListener('click', async () => {
 function renderRecentImports() {
   const wrap = $('#recentImportsWrap');
   const grid = $('#recentImports');
-  const recent = [...SONGS].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
+  const recent = [...LIB].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
   wrap.style.display = recent.length ? '' : 'none';
   grid.innerHTML = '';
   for (const s of recent) {
@@ -3540,6 +3592,7 @@ window.addEventListener('offline', updateNet);
   TOMBS = await getSetting('tombstones', {});
   plsView = await getSetting('plsView', 'list');
   plsSort = await getSetting('plsSort', 'manual');
+  VERPREF = await getSetting('versionPref', {});
   IMPORT_VERSIONS = await getSetting('importVersions', true);
   $('#importVersionsChk').checked = IMPORT_VERSIONS;
   applyTheme();
