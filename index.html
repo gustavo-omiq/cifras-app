@@ -891,7 +891,11 @@ html, body { overflow-x: hidden; max-width: 100%; }
           <input type="text" id="urlInput" placeholder="https://www.cifraclub.com.br/artista/musica/" style="flex:1;width:auto" inputmode="url" aria-label="URL da cifra no CifraClub">
           <button class="btn" id="urlImportBtn">Importar</button>
         </div>
-        <p class="label-caps" style="text-align:center;margin-top:14px">Suporte: violão, guitarra, baixo e ukulele</p>
+        <label class="checkrow" style="margin-top:14px;border-bottom:0">
+          <input type="checkbox" id="importVersionsChk" checked>
+          <span>Importar também as outras versões da cifra (ex.: simplificada), cada uma como uma cifra separada</span>
+        </label>
+        <p class="label-caps" style="text-align:center;margin-top:10px">Suporte: violão, guitarra, baixo e ukulele</p>
       </div>
 
       <aside class="card" style="margin-bottom:0;background:var(--surface2)">
@@ -1574,32 +1578,73 @@ function preToTokens(node) {
   for (const child of node.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) out += child.nodeValue;
     else if (child.nodeType === Node.ELEMENT_NODE) {
-      if (child.tagName === 'B') out += CH_OPEN + child.textContent + CH_CLOSE;
+      if (child.tagName === 'B') out += CH_OPEN + (child.getAttribute('data-chord-original-text') || child.textContent) + CH_CLOSE;
       else if (child.tagName === 'BR') out += '\n';
       else out += preToTokens(child);
     }
   }
   return out;
 }
+/* O site novo do CifraClub (Next.js) embute os dados da cifra num payload de React
+ * Server Components (self.__next_f.push([1,"…"])). Desfaz o escape e junta tudo. */
+function nextPayload(html) {
+  let out = '';
+  const re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g;
+  let m;
+  while ((m = re.exec(html))) { try { out += JSON.parse(m[1]) + '\n'; } catch {} }
+  return out;
+}
+/* versões da cifra no payload — só violão/guitarra (kind 1; ignora letra, Guitar Pro…).
+ * A principal fica em /{artista}/{musica}/, as outras em /{artista}/{musica}/{slug}.html */
+function parseVersions(payload) {
+  const out = [];
+  const re = /\{"id":(\d+),"instrument":\{"kind":(\d+),"name":"[^"]*","slug":"[^"]*"\},"label":\{"name":"([^"]*)","slug":"([^"]*)"\}/g;
+  let m;
+  while ((m = re.exec(payload))) {
+    if (m[2] === '1' && !out.some(v => v.slug === m[4])) out.push({ id: +m[1], name: m[3], slug: m[4] });
+  }
+  return out;
+}
+function ldArtistName(html) {
+  for (const m of html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)) {
+    try { const n = JSON.parse(m[1])?.byArtist?.name; if (n) return String(n).trim(); } catch {}
+  }
+  return '';
+}
 function parseCifraHTML(html, sourceUrl) {
+  const payload = nextPayload(html);
   const doc = new DOMParser().parseFromString(html, 'text/html');
   doc.querySelectorAll('script, style').forEach(e => e.remove());
+  const txt = el => (el?.textContent || '').replace(/\s+/g, ' ').trim();
 
-  const title = (doc.querySelector('.js-title_color')?.textContent
-    || doc.querySelector('h1')?.textContent || '').trim() || 'Sem título';
-  const artist = (doc.querySelector('.js-artist_color')?.textContent
-    || doc.querySelector('h2')?.textContent || '').trim() || 'Desconhecido';
+  // site novo: <title> "Música - Artista - Cifra Club", artista também no ld+json;
+  // as classes js-* eram do site antigo (mantidas por segurança)
+  const tparts = txt(doc.querySelector('title')).split(' - ').map(x => x.trim());
+  const fromTitle = tparts.length >= 3 && /cifra ?club/i.test(tparts[tparts.length - 1])
+    ? { title: tparts.slice(0, -2).join(' - '), artist: tparts[tparts.length - 2] } : {};
+  const title = txt(doc.querySelector('.js-title_color')) || fromTitle.title
+    || txt(doc.querySelector('h1')) || 'Sem título';
+  const artist = txt(doc.querySelector('.js-artist_color')) || ldArtistName(html)
+    || fromTitle.artist || txt(doc.querySelector('h2')) || 'Desconhecido';
 
-  let key = '';
-  const kText = /tom:\s*([A-G](?:#|b)?m?)\b/i.exec(doc.body.textContent);
-  if (kText) key = kText[1];
-  let capo = '';
-  const cText = /capotraste na (\d+ª casa)/i.exec(doc.body.textContent);
-  if (cText) capo = 'Capotraste na ' + cText[1];
+  // tom (forma dos acordes) e capotraste: config do payload; senão o texto da página
+  let key = '', capo = '';
+  const cfg = /"config":\{[^{}]*"keyShape"[^{}]*\}/.exec(payload);
+  if (cfg) {
+    const k = /"keyShape":"([A-G](?:#|b)?m?)"/.exec(cfg[0]); if (k) key = k[1];
+    const c = /"capo":(\d+)/.exec(cfg[0]); if (c && +c[1] > 0) capo = `Capotraste na ${c[1]}ª casa`;
+  }
+  const body = doc.body.textContent;
+  if (!key) { const m = /\btom\s*:\s*([A-G](?:#|b)?m?)\b/i.exec(body); if (m) key = m[1]; }
+  if (!capo) { const m = /capotraste\s*(?::|na)?\s*(\d+)\s*ª?\s*casa/i.exec(body); if (m) capo = `Capotraste na ${m[1]}ª casa`; }
 
-  const pre = doc.querySelector('pre');
-  if (!pre) throw new Error('Página sem conteúdo de cifra (<pre> não encontrado)');
-  let content = preToTokens(pre).replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').replace(/\s+$/, '');
+  // site novo: a página normal tem a cifra inteira num <pre data-chord-content>; a de
+  // impressão divide em vários <pre> (quebras de página) — nesse caso junta todos
+  const pres = [...doc.querySelectorAll('pre')];
+  if (!pres.length) throw new Error('Página sem conteúdo de cifra (<pre> não encontrado)');
+  const main = pres.find(p => p.hasAttribute('data-chord-content'));
+  let content = (main ? preToTokens(main) : pres.map(preToTokens).join('\n'))
+    .replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').replace(/\s+$/, '');
 
   if (!key) { // fallback: primeiro acorde
     const first = TOKEN_RE.exec(content);
@@ -1612,7 +1657,10 @@ function parseCifraHTML(html, sourceUrl) {
     const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)/.exec(sourceUrl);
     if (m) { artistSlug = m[1]; songSlug = m[2]; }
   }
-  return { title, artist, originalKey: key || 'C', capo, content, artistSlug, songSlug };
+  const versions = parseVersions(payload);
+  const vid = /"versionId":(\d+)/.exec(payload);
+  const activeVersion = (vid && versions.find(v => v.id === +vid[1])) || null;
+  return { title, artist, originalKey: key || 'C', capo, content, artistSlug, songSlug, versions, activeVersion };
 }
 function parseArtistPage(html, slug) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -1629,6 +1677,8 @@ function parseArtistPage(html, slug) {
       const m = /m[uú]sica "(.+?)"/i.exec(img.getAttribute('alt') || '');
       if (m) title = m[1];
     }
+    // site novo: sem capa, o título fica em .primaryLabel e o ranking num <p> à parte
+    if (!title) title = (a.querySelector('.primaryLabel')?.textContent || '').trim();
     if (!title) title = (a.textContent || '').trim().replace(/^\d{1,3}(?=\D)/, '');
     if (title) songs.push({ title, artistSlug: slug, songSlug: parts[1] });
   }
@@ -1675,7 +1725,7 @@ async function fetchText(url, timeoutMs = 25000, signal) {
  * Orçamento total por música (budgetMs) para uma cifra ruim não travar o lote;
  * um 404 vindo do Worker próprio é definitivo (a página não existe) e
  * interrompe a cadeia; `signal` permite cancelar no meio do download. */
-async function fetchCifraClub(url, validate, { signal, budgetMs = 30000 } = {}) {
+async function fetchCifraClub(url, validate, { signal, budgetMs = 45000 } = {}) {
   const attempts = ['{raw}', ...PROXIES];
   const t0 = Date.now();
   let lastErr = null;
@@ -1685,7 +1735,7 @@ async function fetchCifraClub(url, validate, { signal, budgetMs = 30000 } = {}) 
     if (remaining < 1500) break;
     const target = tpl.replace('{url}', encodeURIComponent(url)).replace('{raw}', url);
     try {
-      const text = await fetchText(target, Math.min(12000, remaining), signal);
+      const text = await fetchText(target, Math.min(20000, remaining), signal); // páginas novas têm ~500 KB
       if (validate && !validate(text)) throw new Error('resposta inválida');
       if (tpl !== '{raw}') { // memoriza proxy que funcionou
         PROXIES = [tpl, ...PROXIES.filter(p => p !== tpl)];
@@ -1700,7 +1750,9 @@ async function fetchCifraClub(url, validate, { signal, budgetMs = 30000 } = {}) 
   }
   throw new Error('Não foi possível baixar. Último erro: ' + (lastErr?.message || lastErr));
 }
-const songUrl = (aSlug, sSlug) => `https://www.cifraclub.com.br/${aSlug}/${sSlug}/imprimir.html`;
+/* página normal (a de impressão do site novo vem quebrada em vários <pre>);
+ * versão alternativa (ex.: "simplificada") fica em /{artista}/{musica}/{versao}.html */
+const songUrl = (aSlug, sSlug, ver) => `https://www.cifraclub.com.br/${aSlug}/${sSlug}/${ver ? ver + '.html' : ''}`;
 const artistUrl = slug => `https://www.cifraclub.com.br/${slug}/musicas.html`;
 
 /* busca (API pública do CifraClub, com CORS liberado — funciona sem proxy) */
@@ -1716,8 +1768,10 @@ async function ccSearch(q) {
 
 /* ------------------------- salvar música ------------------------- */
 function findExisting(parsed) {
+  const ver = parsed.versionSlug || ''; // cada versão (ex.: simplificada) é uma cifra própria
   return SONGS.find(s =>
-    (parsed.artistSlug && parsed.songSlug && s.artistSlug === parsed.artistSlug && s.songSlug === parsed.songSlug) ||
+    (parsed.artistSlug && parsed.songSlug && s.artistSlug === parsed.artistSlug && s.songSlug === parsed.songSlug
+      && (s.versionSlug || '') === ver) ||
     (norm(s.title) === norm(parsed.title) && norm(s.artist) === norm(parsed.artist)));
 }
 async function saveSong(parsed) {
@@ -1726,10 +1780,12 @@ async function saveSong(parsed) {
     id: existing ? existing.id : uid(),
     title: parsed.title, artist: parsed.artist,
     artistSlug: parsed.artistSlug || '', songSlug: parsed.songSlug || '',
+    ...(parsed.versionSlug ? { versionSlug: parsed.versionSlug, versionName: parsed.versionName || parsed.versionSlug } : {}),
     originalKey: parsed.originalKey || 'C',
     capo: parsed.capo || (existing ? existing.capo || '' : ''), // reimportar não apaga capo definido pelo usuário
     transpose: existing ? (existing.transpose || 0) : 0,
     favorite: existing ? !!existing.favorite : false,
+    ...(existing?.hideTabs ? { hideTabs: true } : {}),
     content: parsed.content,
     createdAt: existing ? existing.createdAt : Date.now(),
     updatedAt: Date.now(),
@@ -2831,9 +2887,10 @@ function releaseSlot() {
   const w = dlWaiters.shift();
   if (w) w(); else dlSlots++;
 }
+const plural = (n, um, varios) => n === 1 ? um : varios;
 function enqueueArtistImport(name, songs) {
   const job = {
-    id: uid(), name, songs, done: 0, ok: 0, fail: 0, failed: [],
+    id: uid(), name, songs, done: 0, ok: 0, fail: 0, extra: 0, failed: [], failedSongs: [],
     lastTitle: '', finished: false, cancelled: false, ctl: new AbortController(),
   };
   importJobs.set(job.id, job);
@@ -2848,10 +2905,11 @@ async function runImportJob(job) {
       if (job.ctl.signal.aborted) return;
       job.lastTitle = s.title;
       renderImportJobs();
-      await importOneSong(s.artistSlug, s.songSlug, { signal: job.ctl.signal });
+      const r = await importOneSong(s.artistSlug, s.songSlug, { signal: job.ctl.signal, version: s.versionSlug, versionName: s.versionName });
       job.ok++;
+      job.extra += r.versions.length;
     } catch (e) {
-      if (!job.ctl.signal.aborted) { job.fail++; job.failed.push(s.title); }
+      if (!job.ctl.signal.aborted) { job.fail++; job.failed.push(s.title); job.failedSongs.push(s); }
     } finally {
       job.done++;
       releaseSlot();
@@ -2861,13 +2919,16 @@ async function runImportJob(job) {
   job.finished = true;
   renderImportJobs();
   rerenderLists();
-  toast(`${job.name}: ${job.ok} cifra${job.ok === 1 ? '' : 's'} importada${job.ok === 1 ? '' : 's'}${job.fail ? `, ${job.fail} falhou${job.fail === 1 ? '' : 'aram'}` : ''}`);
-  // some sozinho: rápido se deu tudo certo, mais tempo se houve falhas para ler
-  setTimeout(() => { importJobs.delete(job.id); renderImportJobs(); }, job.fail ? 20000 : 6000);
+  toast(`${job.name}: ${job.ok} ${plural(job.ok, 'cifra importada', 'cifras importadas')}`
+    + (job.extra ? ` (+${job.extra} ${plural(job.extra, 'versão', 'versões')})` : '')
+    + (job.fail ? `, ${job.fail} ${plural(job.fail, 'falhou', 'falharam')}` : ''));
+  // some sozinho se deu tudo certo; com falhas fica na tela até fechar (dá pra tentar de novo)
+  if (!job.fail) setTimeout(() => { importJobs.delete(job.id); renderImportJobs(); }, 6000);
 }
 function jobStatusText(job) {
-  if (job.cancelled) return `Cancelado — ${job.ok} importadas antes de parar.`;
-  if (job.finished) return `Concluído: ${job.ok} importadas${job.fail ? ` · falharam: ${job.failed.slice(0, 5).join(', ')}${job.failed.length > 5 ? '…' : ''}` : ''}`;
+  const extra = job.extra ? ` (+${job.extra} ${plural(job.extra, 'versão', 'versões')})` : '';
+  if (job.cancelled) return `Cancelado — ${job.ok} importadas${extra} antes de parar.`;
+  if (job.finished) return `Concluído: ${job.ok} importadas${extra}${job.fail ? ` · falharam: ${job.failed.slice(0, 5).join(', ')}${job.failed.length > 5 ? '…' : ''}` : ''}`;
   return job.lastTitle ? `Baixando: ${job.lastTitle}` : 'Na fila…';
 }
 function renderImportJobs() {
@@ -2884,7 +2945,10 @@ function renderImportJobs() {
         ${job.finished ? (job.fail || job.cancelled ? '<span>⚠️</span>' : '<span>✅</span>') : '<span class="spinner"></span>'}
         <b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(job.name)}</b>
         <span class="muted" style="white-space:nowrap">${job.done}/${total}</span>
-        ${job.finished ? '' : `<button class="btn sm danger" data-job="${job.id}">Cancelar</button>`}
+        ${job.finished
+          ? `${job.failedSongs.length ? `<button class="btn sm" data-retry="${job.id}">Tentar de novo (${job.failedSongs.length})</button>` : ''}
+             <button class="btn sm ghost" data-close="${job.id}">Fechar</button>`
+          : `<button class="btn sm danger" data-job="${job.id}">Cancelar</button>`}
       </div>
       <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
       <div class="muted">${escHtml(jobStatusText(job))}</div>`;
@@ -2892,17 +2956,52 @@ function renderImportJobs() {
   }
 }
 $('#importJobs').addEventListener('click', e => {
-  const b = e.target.closest('[data-job]');
-  if (!b) return;
-  const job = importJobs.get(b.dataset.job);
-  if (job) { job.cancelled = true; job.ctl.abort(); renderImportJobs(); }
+  const cancel = e.target.closest('[data-job]');
+  if (cancel) {
+    const job = importJobs.get(cancel.dataset.job);
+    if (job) { job.cancelled = true; job.ctl.abort(); renderImportJobs(); }
+    return;
+  }
+  const retry = e.target.closest('[data-retry]');
+  if (retry) { // refaz só as que falharam, como um job novo
+    const job = importJobs.get(retry.dataset.retry);
+    if (job) { importJobs.delete(job.id); enqueueArtistImport(job.name, job.failedSongs); }
+    return;
+  }
+  const close = e.target.closest('[data-close]');
+  if (close) { importJobs.delete(close.dataset.close); renderImportJobs(); }
 });
 
-async function importOneSong(aSlug, sSlug, opts) {
-  const html = await fetchCifraClub(songUrl(aSlug, sSlug), t => t.includes('<pre'), opts);
+/* Baixa e salva uma cifra. Com IMPORT_VERSIONS ligado, importa também as outras
+ * versões de violão/guitarra listadas na página (ex.: "Simplificada") — cada uma
+ * vira uma cifra própria, com o nome da versão no título. */
+let IMPORT_VERSIONS = true;
+async function importOneSong(aSlug, sSlug, opts = {}) {
+  const html = await fetchCifraClub(songUrl(aSlug, sSlug, opts.version), t => t.includes('<pre'), opts);
   const parsed = parseCifraHTML(html, `https://www.cifraclub.com.br/${aSlug}/${sSlug}/`);
-  return saveSong(parsed);
+  if (opts.version) {
+    parsed.versionSlug = opts.version;
+    parsed.versionName = parsed.activeVersion?.name || opts.versionName || opts.version;
+    parsed.title += ` (${parsed.versionName})`;
+  }
+  const res = await saveSong(parsed);
+  res.versions = [];
+  if (!opts.version && IMPORT_VERSIONS) {
+    const others = parsed.versions.filter(v => v.slug !== 'principal' && v.id !== parsed.activeVersion?.id);
+    for (const v of others) {
+      if (opts.signal?.aborted) break;
+      try {
+        const r = await importOneSong(aSlug, sSlug, { signal: opts.signal, version: v.slug, versionName: v.name });
+        res.versions.push(r.song);
+      } catch (e) { console.warn(`versão "${v.slug}" de ${sSlug} não importada:`, e.message); }
+    }
+  }
+  return res;
 }
+$('#importVersionsChk').addEventListener('change', async e => {
+  IMPORT_VERSIONS = e.target.checked;
+  await setSetting('importVersions', IMPORT_VERSIONS);
+});
 
 $('#ccSearchBtn').addEventListener('click', doCcSearch);
 $('#ccSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doCcSearch(); });
@@ -2929,9 +3028,10 @@ async function doCcSearch() {
         if (r.type === 'artist') return loadArtistPanel(r.artistSlug, r.artist);
         el.style.opacity = .5;
         try {
-          const { song, updated } = await importOneSong(r.artistSlug, r.songSlug);
+          const res = await importOneSong(r.artistSlug, r.songSlug);
           cacheArtistImage(r.artistSlug, r.img); // foto do artista p/ uso offline
-          toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
+          const nv = res.versions.length;
+          toast(`${res.updated ? 'Atualizada' : 'Importada'}: ${res.song.title}${nv ? ` (+${nv} ${plural(nv, 'versão', 'versões')})` : ''}`);
           renderRecentImports();
         } catch (err) { toast('Erro: ' + err.message, 4000); }
         el.style.opacity = 1;
@@ -2986,12 +3086,15 @@ $('#urlImportBtn').addEventListener('click', async () => {
   let url = $('#urlInput').value.trim();
   if (!/cifraclub\.com\.br\/[^\/]+\/[^\/]+/.test(url)) return toast('URL inválida do CifraClub');
   url = url.split(/[?#]/)[0].replace(/\/(imprimir\.html)?$/, '');
-  const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)/.exec(url);
+  // …/artista/musica/ ou uma versão: …/artista/musica/simplificada.html
+  const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)(?:\/([\w-]+)\.html)?/.exec(url);
   $('#urlImportBtn').disabled = true;
   try {
-    const { song, updated } = await importOneSong(m[1], m[2]);
+    const res = await importOneSong(m[1], m[2], m[3] ? { version: m[3] } : {});
+    const { song, updated } = res;
     lookupArtistImage(m[1], song.artist); // foto do artista, melhor esforço
-    toast(updated ? `Atualizada: ${song.title}` : `Importada: ${song.title}`);
+    const nv = res.versions.length;
+    toast(`${updated ? 'Atualizada' : 'Importada'}: ${song.title}${nv ? ` (+${nv} ${plural(nv, 'versão', 'versões')})` : ''}`);
     $('#urlInput').value = '';
     renderRecentImports();
   } catch (err) { toast('Erro: ' + err.message, 4000); }
@@ -3189,7 +3292,7 @@ $('#updateAllBtn').addEventListener('click', async () => {
     if (updateAllCancel) break;
     const s = targets[i];
     status.textContent = `${i + 1}/${targets.length}: ${s.title}`;
-    try { await importOneSong(s.artistSlug, s.songSlug); ok++; }
+    try { await importOneSong(s.artistSlug, s.songSlug, { version: s.versionSlug, versionName: s.versionName }); ok++; }
     catch { fail++; }
     await sleep(700); // gentileza com o servidor
   }
@@ -3434,6 +3537,8 @@ window.addEventListener('offline', updateNet);
   TOMBS = await getSetting('tombstones', {});
   plsView = await getSetting('plsView', 'list');
   plsSort = await getSetting('plsSort', 'manual');
+  IMPORT_VERSIONS = await getSetting('importVersions', true);
+  $('#importVersionsChk').checked = IMPORT_VERSIONS;
   applyTheme();
   renderThemeChips();
   await loadProxies();
