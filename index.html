@@ -3614,7 +3614,30 @@ window.addEventListener('offline', updateNet);
   if (SYNC.auto && SYNC.url && SYNC.key) setTimeout(() => doSync(false), 2500);
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    // Sem isto o app ficava preso na versão em cache até fechar e reabrir duas vezes —
+    // e uma versão antiga do app com o Worker novo dá erro na sincronização.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloadArmed = false;
+    const applyUpdate = () => {
+      if (!reloadArmed) return;
+      reloadArmed = false;
+      location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return; // primeira instalação: já está na versão atual
+      reloadArmed = true;
+      if ($('#viewer').classList.contains('open')) { // tocando: espera fechar a cifra
+        toast('Nova versão baixada — atualiza ao sair desta cifra', 5000);
+      } else {
+        toast('Atualizando para a versão nova…', 2000);
+        setTimeout(applyUpdate, 700);
+      }
+    });
+    $('#vBack').addEventListener('click', () => setTimeout(applyUpdate, 300));
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      reg.update().catch(() => {});                                  // procura versão nova ao abrir
+      setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000); // e de hora em hora
+    }).catch(() => {});
   }
 })();
 </script>
