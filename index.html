@@ -3369,22 +3369,12 @@ $('#wipeBtn').addEventListener('click', async () => {
 });
 async function renderStorageInfo() {
   let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
-  // o app manda JSON puro pro Worker — a compressão (gzip) é só do Worker pro KV,
-  // invisível aqui. Estimamos o tamanho comprimido localmente só pra mostrar
-  // (não muda o que é realmente enviado).
-  const payloadJson = JSON.stringify({ songs: SONGS, playlists: PLAYLISTS, tombstones: TOMBS });
-  txt += ` Dados de sincronização: ${(payloadJson.length / 1048576).toFixed(1)} MB`;
-  try {
-    if (typeof CompressionStream === 'function') {
-      const cs = new CompressionStream('gzip');
-      const writer = cs.writable.getWriter();
-      writer.write(new TextEncoder().encode(payloadJson));
-      writer.close();
-      const compressed = await new Response(cs.readable).arrayBuffer();
-      txt += ` (≈ ${(compressed.byteLength / 1048576).toFixed(1)} MB comprimidos — é isso que o Worker guarda no KV)`;
-    }
-  } catch {}
-  txt += '.';
+  // estimativa somando os campos, sem serializar a biblioteca inteira: com muitas
+  // cifras, montar (e comprimir) essa string travava o aparelho ao abrir os Ajustes
+  let bytes = 0;
+  for (const s of SONGS) bytes += (s.content || '').length + (s.title || '').length + (s.artist || '').length + 220;
+  for (const p of PLAYLISTS) bytes += (p.name || '').length + (p.songIds?.length || 0) * 26 + 120;
+  txt += ` Dados de sincronização: ~${(bytes / 1048576).toFixed(1)} MB (o Worker comprime antes de guardar).`;
   try {
     if (navigator.storage?.estimate) {
       const e = await navigator.storage.estimate();
@@ -3468,6 +3458,19 @@ function syncStatusIdle() {
   if (!SYNC.lastAt) return 'Nunca sincronizado.';
   return `Última sincronização ${timeAgo(SYNC.lastAt)} (rev ${SYNC.rev})${SYNC.dirty ? ' — há alterações locais pendentes' : ''}.`;
 }
+/* O Worker novo devolve só os dados, com a revisão em X-Sync-Rev; o formato antigo
+ * vinha como { rev, data } no corpo. Aceita os dois para não depender da ordem do deploy. */
+async function readSyncBody(res, fallbackRev) {
+  const hdr = res.headers.get('X-Sync-Rev');
+  if (hdr !== null) return { data: await res.json(), rev: parseInt(hdr, 10) };
+  const body = await res.json();
+  return { data: body?.data ?? null, rev: typeof body?.rev === 'number' ? body.rev : fallbackRev };
+}
+/* Assinatura barata da biblioteca: comparar serializando tudo custava dezenas de MB
+ * de string a cada sincronização (travava o aparelho com biblioteca grande). */
+const libSig = (songs, pls) => songs.length + ':' + pls.length + ':'
+  + songs.reduce((a, s) => a + (s.updatedAt || 0), 0) + ':'
+  + pls.reduce((a, p) => a + (p.updatedAt || 0), 0);
 async function doSync(manual) {
   if (syncBusy) return;
   if (!SYNC.url || !SYNC.key) { if (manual) toast('Configure a URL do Worker e a chave nos Ajustes'); return; }
@@ -3487,19 +3490,25 @@ async function doSync(manual) {
       return;
     }
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    ({ data: remote, rev: remoteRev } = await res.json());
+    ({ data: remote, rev: remoteRev } = await readSyncBody(res, SYNC.rev));
 
     let merged = mergeLibraries(SONGS, PLAYLISTS, remote);
     await applyMerged(merged);
 
-    const needPut = SYNC.dirty || !remote || JSON.stringify({ s: merged.songs, p: merged.playlists })
-      !== JSON.stringify({ s: remote.songs || [], p: remote.playlists || [] });
+    const needPut = SYNC.dirty || !remote
+      || libSig(merged.songs, merged.playlists) !== libSig(remote.songs || [], remote.playlists || []);
     let pushed = !needPut;
     if (needPut) {
       for (let tent = 0; tent < 2; tent++) {
-        res = await fetch(`${base}/sync`, { method: 'PUT', headers, body: JSON.stringify({ baseRev: remoteRev, data: merged }) });
+        // corpo = só os dados; a revisão base vai no cabeçalho para o Worker não precisar
+        // abrir o JSON (é o que estourava a memória dele com biblioteca grande)
+        res = await fetch(`${base}/sync`, {
+          method: 'PUT',
+          headers: { ...headers, 'X-Base-Rev': String(remoteRev) },
+          body: JSON.stringify(merged),
+        });
         if (res.status === 409) { // outro aparelho gravou no meio: mescla de novo e tenta uma vez
-          const cur = await res.json();
+          const cur = await readSyncBody(res, remoteRev);
           remoteRev = cur.rev;
           merged = mergeLibraries(SONGS, PLAYLISTS, cur.data);
           await applyMerged(merged);
@@ -3522,6 +3531,8 @@ async function doSync(manual) {
     if (/HTTP 404/.test(msg)) msg = 'HTTP 404 — a URL do Worker parece errada (não é a URL do app!). Confira nos Ajustes ou toque em "Usar padrão".';
     if (/HTTP 401/.test(msg)) msg = 'HTTP 401 — a chave de sincronização está vazia ou curta demais.';
     if (/HTTP 413/.test(msg)) msg = 'HTTP 413 — sua biblioteca passou do limite de sincronização mesmo comprimida. Veja o tamanho em Ajustes → Armazenamento.';
+    if (/HTTP 400/.test(msg)) msg = 'HTTP 400 — o Worker recusou o formato. Se outro aparelho já atualizou, feche e reabra este app duas vezes.';
+    if (/HTTP 50\d/.test(msg)) msg = msg + ' — o Worker falhou ao processar. Se repetir, me avise o tamanho em Ajustes → Armazenamento.';
     setSyncStatus('Falha ao sincronizar: ' + msg);
     if (manual) toast('Erro ao sincronizar: ' + msg, 5000);
   } finally {
