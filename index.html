@@ -1198,6 +1198,9 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <p class="muted" style="margin-bottom:8px">Baixa de novo, do CifraClub, todas as cifras importadas de lá, começando pelas mais recentes — útil quando a cifra original recebe correções ou veio incompleta. Tom transposto, favoritas e capotraste são preservados; pode cancelar a qualquer momento.</p>
       <button class="btn" id="updateAllBtn">Atualizar cifras do CifraClub</button>
       <p class="muted" id="updateAllStatus" style="margin-top:8px"></p>
+      <p class="muted" style="margin:16px 0 8px">Busca de novo a foto de cada artista: preenche as que faltam e troca as que mudaram no CifraClub. Não mexe nas cifras.</p>
+      <button class="btn" id="updateImgsBtn">Atualizar fotos dos artistas</button>
+      <p class="muted" id="updateImgsStatus" style="margin-top:8px"></p>
     </div>
 
     <div class="card">
@@ -1451,19 +1454,22 @@ function plPut(pl) { pl.updatedAt = Date.now(); return dbPut('playlists', pl); }
  * as fotos continuam aparecendo offline. */
 const IMG_BASE = 'https://akamai.sscdn.co/letras/215x215/fotos/';
 const ARTIMG = new Map(); // artistSlug -> objectURL
+const ARTHASH = new Map(); // artistSlug -> hash da foto guardada (p/ saber se mudou no CifraClub)
 
 const isImageBlob = b => b && /^image\//.test(b.type || '') && b.size > 100;
 async function loadArtistImages() {
   try {
     for (const rec of await dbAll('images')) {
       // auto-reparo: apaga registros que não são imagem de verdade (ex.: página de erro salva)
-      if (isImageBlob(rec.blob)) ARTIMG.set(rec.slug, URL.createObjectURL(rec.blob));
+      if (isImageBlob(rec.blob)) { ARTIMG.set(rec.slug, URL.createObjectURL(rec.blob)); ARTHASH.set(rec.slug, rec.hash); }
       else await dbDel('images', rec.slug);
     }
   } catch {}
 }
-async function cacheArtistImage(slug, hash) {
-  if (!slug || !hash || ARTIMG.has(slug)) return;
+/* devolve 'saved' (baixou), 'same' (já tinha) ou 'fail'; com force, troca a foto se o hash mudou */
+async function cacheArtistImage(slug, hash, force = false) {
+  if (!slug || !hash) return 'fail';
+  if (ARTIMG.has(slug) && (!force || ARTHASH.get(slug) === hash)) return 'same';
   // só entra no cache depois de baixar e validar; falhou (504/404), tenta em outra ocasião
   try {
     const res = await fetch(IMG_BASE + hash);
@@ -1471,9 +1477,13 @@ async function cacheArtistImage(slug, hash) {
     const blob = await res.blob();
     if (!isImageBlob(blob)) throw new Error('resposta não é imagem');
     await dbPut('images', { slug, hash, blob });
+    const old = ARTIMG.get(slug);
     ARTIMG.set(slug, URL.createObjectURL(blob));
+    ARTHASH.set(slug, hash);
+    if (old) URL.revokeObjectURL(old);
     rerenderLists();
-  } catch {}
+    return 'saved';
+  } catch { return 'fail'; }
 }
 /* melhor esforço: acha a foto de um artista pelo nome (usado no import por URL) */
 async function lookupArtistImage(slug, name) {
@@ -3354,6 +3364,41 @@ $('#updateAllBtn').addEventListener('click', async () => {
   status.textContent = `Concluído: ${ok} atualizadas${fail ? `, ${fail} falharam` : ''}${updateAllCancel ? ' (cancelado)' : ''}`;
   btn.textContent = 'Atualizar cifras do CifraClub';
   updateAllRunning = false;
+  rerenderLists();
+});
+/* atualização em lote só das fotos dos artistas (não baixa cifra nenhuma) */
+let updateImgsRunning = false, updateImgsCancel = false;
+$('#updateImgsBtn').addEventListener('click', async () => {
+  const btn = $('#updateImgsBtn'), status = $('#updateImgsStatus');
+  if (updateImgsRunning) { updateImgsCancel = true; return; }
+  if (!navigator.onLine) return toast('Sem internet');
+  const artists = new Map(); // artistSlug -> nome
+  for (const s of SONGS) if (s.artistSlug && !artists.has(s.artistSlug)) artists.set(s.artistSlug, s.artist);
+  if (!artists.size) return toast('Nenhum artista do CifraClub na biblioteca');
+  updateImgsRunning = true; updateImgsCancel = false;
+  btn.textContent = 'Cancelar atualização';
+  let saved = 0, same = 0, none = 0, fail = 0, i = 0;
+  for (const [slug, name] of artists) {
+    if (updateImgsCancel) break;
+    status.textContent = `${++i}/${artists.size}: ${name}`;
+    try {
+      // casa pelo slug (a busca traz homônimos); o registro do artista primeiro, senão uma música dele
+      const docs = await ccSearch(name);
+      const doc = docs.find(d => d.artistSlug === slug && d.type === 'artist' && d.img)
+        || docs.find(d => d.artistSlug === slug && d.img);
+      if (!doc) none++;
+      else {
+        const r = await cacheArtistImage(slug, doc.img, true);
+        if (r === 'saved') saved++; else if (r === 'same') same++; else fail++;
+      }
+    } catch { fail++; }
+    await sleep(300); // gentileza com o servidor
+  }
+  status.textContent = `Concluído: ${saved} ${plural(saved, 'foto nova ou trocada', 'fotos novas ou trocadas')}, ${same} já em dia`
+    + (none ? `, ${none} sem foto no CifraClub` : '') + (fail ? `, ${fail} falharam` : '')
+    + (updateImgsCancel ? ' (cancelado)' : '');
+  btn.textContent = 'Atualizar fotos dos artistas';
+  updateImgsRunning = false;
   rerenderLists();
 });
 $('#wipeBtn').addEventListener('click', async () => {
