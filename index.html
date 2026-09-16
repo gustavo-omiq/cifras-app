@@ -681,10 +681,13 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 .plitem { display: flex; align-items: center; gap: 6px; }
 /* alça de arrastar: touch-action none para o dedo arrastar o item, não a página */
 .plitem .draghandle { touch-action: none; cursor: grab; color: var(--muted); width: 36px; height: 36px; }
-.plitem.dragging {
-  opacity: .93; transform: scale(1.01);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25);
-  position: relative; z-index: 2;
+/* durante o arrasto o item real vira o marcador do lugar de destino… */
+.plitem.dragging { opacity: .3; border-style: dashed; transform: none; }
+/* …e uma cópia (fantasma) segue o ponteiro */
+.dragghost {
+  position: fixed; z-index: 60; pointer-events: none; margin: 0;
+  transform: scale(1.02); box-shadow: 0 10px 28px rgba(0,0,0,.3);
+  transition: none; opacity: .96; box-sizing: border-box;
 }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%) translateY(6px);
@@ -2856,32 +2859,59 @@ $('#plDetailDel').addEventListener('click', async () => {
   closePlaylistScreen();
 });
 /* reordenação por arrastar (ordenação manual, vista em lista): a alça captura
- * o ponteiro (touch/mouse) e o item é reinserido ao vivo entre os irmãos;
- * o click pós-arrasto cai na própria alça, que o handler de click já ignora */
+ * o ponteiro (touch/mouse); uma cópia do item (fantasma) segue o ponteiro e o
+ * item real, translúcido, é reinserido ao vivo entre os irmãos marcando o destino.
+ * Perto das bordas a lista rola sozinha. O click pós-arrasto cai na própria
+ * alça, que o handler de click já ignora */
 function plsAttachDrag(item, pl) {
   const handle = item.querySelector('[data-drag]');
   if (!handle) return;
   handle.addEventListener('pointerdown', e => {
     e.preventDefault();
-    handle.setPointerCapture(e.pointerId);
-    const box = $('#plDetailSongs');
-    let moved = false;
-    const onMove = ev => {
-      if (!moved && Math.abs(ev.clientY - e.clientY) <= 6) return;
-      moved = true;
-      item.classList.add('dragging');
-      // insere antes do primeiro irmão cujo meio está abaixo do ponteiro
+    // os eventos ficam no document: reinserir o item no DOM solta a captura do
+    // ponteiro, e escutar na alça fazia o arrasto morrer depois da primeira troca
+    const box = $('#plDetailSongs'), scroller = $('#plsscroll');
+    box.style.userSelect = 'none';
+    let moved = false, ghost = null, grabDy = 0, lastY = e.clientY, scrollTimer = null;
+    const place = y => { // insere antes do primeiro irmão cujo meio está abaixo do ponteiro
       const after = [...box.children].filter(el => el !== item).find(el => {
         const r = el.getBoundingClientRect();
-        return ev.clientY < r.top + r.height / 2;
+        return y < r.top + r.height / 2;
       });
       if (after !== item.nextSibling) box.insertBefore(item, after || null);
     };
-    const onUp = async () => {
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
-      handle.removeEventListener('pointercancel', onUp);
+    const autoScroll = () => { // rola a lista quando o ponteiro chega perto da borda
+      const r = scroller.getBoundingClientRect(), edge = 48;
+      const d = lastY < r.top + edge ? -(r.top + edge - lastY) : lastY > r.bottom - edge ? lastY - (r.bottom - edge) : 0;
+      if (d) { scroller.scrollTop += Math.sign(d) * Math.min(18, Math.abs(d) / 2); place(lastY); }
+    };
+    const onMove = ev => {
+      lastY = ev.clientY;
+      if (!moved) {
+        if (Math.abs(ev.clientY - e.clientY) <= 6) return;
+        moved = true;
+        const r = item.getBoundingClientRect();
+        grabDy = e.clientY - r.top;
+        ghost = item.cloneNode(true);
+        ghost.classList.add('dragghost');
+        ghost.classList.remove('dragging');
+        Object.assign(ghost.style, { left: r.left + 'px', width: r.width + 'px', top: r.top + 'px' });
+        document.body.appendChild(ghost);
+        item.classList.add('dragging');
+        scrollTimer = setInterval(autoScroll, 16);
+      }
+      ghost.style.top = (ev.clientY - grabDy) + 'px';
+      place(ev.clientY);
+    };
+    const onUp = async ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      clearInterval(scrollTimer);
+      ghost?.remove();
       item.classList.remove('dragging');
+      box.style.userSelect = '';
       if (!moved) return;
       // aplica a nova ordem como permutação só das músicas visíveis: ids sem
       // linha (música ainda não sincronizada) ficam nas posições originais
@@ -2893,9 +2923,9 @@ function plsAttachDrag(item, pl) {
       await reloadPlaylists();
       renderPlScreen();
     };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
-    handle.addEventListener('pointercancel', onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   });
 }
 async function removePlSong(pl, i) {
