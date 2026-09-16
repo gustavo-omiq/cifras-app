@@ -1441,6 +1441,10 @@ function buildGroups() {
   }
   LIB = [...GROUPS.values()].map(arr => arr[0]);
 }
+/* só as playlists (store minúscula) — reloadCache() relê todas as cifras com conteúdo, e é lento */
+async function reloadPlaylists() {
+  PLAYLISTS = (await dbAll('playlists')).sort((a,b) => norm(a.name).localeCompare(norm(b.name)));
+}
 const versionsOf = s => GROUPS.get(groupKey(s)) || [s];
 const primaryOf = s => versionsOf(s)[0];
 const baseTitle = s => s.versionName ? s.title.replace(/\s*\([^()]*\)\s*$/, '') : s.title;
@@ -2357,17 +2361,19 @@ async function setTranspose(delta, reset) {
   const s = vSong(); if (!s) return;
   // dentro de uma playlist, o tom muda só nela (pl.keys); fora, muda a música
   const pl = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
+  // muda o objeto já em memória e renderiza na hora; a gravação segue depois
+  // (sem recarregar a biblioteca — toques rápidos se acumulam sem se perder)
   if (pl) {
     const n = reset ? 0 : Math.max(-11, Math.min(11, plOffset(pl, s) + delta));
     (pl.keys = pl.keys || {})[s.id] = n;
+    renderViewer();
     await plPut(pl);
-    await reloadCache();
   } else {
     s.transpose = reset ? 0 : Math.max(-11, Math.min(11, (s.transpose || 0) + delta));
     s.updatedAt = Date.now();
+    renderViewer();
     await dbPut('songs', s);
   }
-  renderViewer();
 }
 $('#vBack').addEventListener('click', closeViewer);
 $('#vVersions').addEventListener('click', async e => {
@@ -2412,9 +2418,8 @@ $('#vFav').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   s.favorite = !s.favorite;
   s.updatedAt = Date.now();
-  await dbPut('songs', s);
-  await reloadCache();
   renderViewer();
+  await dbPut('songs', s);
   toast(s.favorite ? 'Adicionada às favoritas' : 'Removida das favoritas', 1600);
 });
 
@@ -2648,7 +2653,7 @@ $('#plCreate').addEventListener('click', async () => {
   if (!name) return toast('Dê um nome à playlist');
   await plPut({ id: uid(), name, songIds: [], createdAt: Date.now() });
   $('#modalNewPl').classList.remove('open');
-  await reloadCache();
+  await reloadPlaylists();
   renderPlaylists();
 });
 
@@ -2793,7 +2798,7 @@ function plsRow(pl, s, ids, i) {
       if (v === null) return;
       pl.notes = pl.notes || {};
       if (v.trim()) pl.notes[s.id] = v.trim(); else delete pl.notes[s.id];
-      await plPut(pl); await reloadCache();
+      await plPut(pl); await reloadPlaylists();
       renderPlScreen();
       return;
     }
@@ -2823,7 +2828,7 @@ $('#plDetailRen').addEventListener('click', async () => {
   const name = prompt('Novo nome:', pl.name);
   if (name?.trim()) {
     pl.name = name.trim();
-    await plPut(pl); await reloadCache();
+    await plPut(pl); await reloadPlaylists();
     $('#modalPlMenu').classList.remove('open');
     renderPlScreen();
   }
@@ -2847,7 +2852,7 @@ $('#plDetailDel').addEventListener('click', async () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
   if (!confirm(`Excluir a playlist "${pl.name}"? (as cifras continuam na biblioteca)`)) return;
   await addTombstone(pl.id);
-  await dbDel('playlists', pl.id); await reloadCache();
+  await dbDel('playlists', pl.id); await reloadPlaylists();
   closePlaylistScreen();
 });
 /* reordenação por arrastar (ordenação manual, vista em lista): a alça captura
@@ -2885,7 +2890,7 @@ function plsAttachDrag(item, pl) {
       let k = 0;
       pl.songIds = pl.songIds.map(id => visSet.has(id) ? domIds[k++] : id);
       await plPut(pl);
-      await reloadCache();
+      await reloadPlaylists();
       renderPlScreen();
     };
     handle.addEventListener('pointermove', onMove);
@@ -2899,7 +2904,7 @@ async function removePlSong(pl, i) {
   if (pl.keys) delete pl.keys[id];   // limpa o tom e a nota da música removida
   if (pl.notes) delete pl.notes[id];
   await plPut(pl);
-  await reloadCache();
+  await reloadPlaylists();
   renderPlScreen();
 }
 /* adicionar à playlist (do visualizador) */
@@ -2916,7 +2921,7 @@ $('#vAddPl').addEventListener('click', () => {
       if (has) pl.songIds = pl.songIds.filter(id => id !== vSongId);
       else pl.songIds.push(vSongId);
       await plPut(pl);
-      await reloadCache();
+      await reloadPlaylists();
       $('#vAddPl').click(); // re-render do modal
     });
     wrap.appendChild(b);
@@ -2930,7 +2935,7 @@ $('#plPickCreate').addEventListener('click', async () => {
   if (!name) return;
   await plPut({ id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
   $('#plPickNew').value = '';
-  await reloadCache();
+  await reloadPlaylists();
   $('#modalPl').classList.remove('open');
   toast(`Adicionada a "${name}"`);
 });
