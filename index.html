@@ -7,11 +7,23 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cifras">
-<meta name="theme-color" content="#f7f9fb">
+<!-- Cor da barra do sistema: uma meta por esquema, para acertar já no primeiro paint
+     e continuar certa sem JS. Com o JS no ar sobra uma só, na cor do tema escolhido. -->
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1b23" media="(prefers-color-scheme: dark)">
 <title>Cifras — Guitarra &amp; Violão</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎸</text></svg>">
+<script>
+/* Tema antes do primeiro paint. A preferência mora no IndexedDB, que só é lido
+ * depois de o app subir — até lá a tela piscava no tema errado. O localStorage
+ * é um espelho leve dessa preferência, gravado quando o usuário troca o tema. */
+try {
+  var _themePref = localStorage.getItem('cifras-theme');
+  if (_themePref === 'dark' || _themePref === 'light') document.documentElement.setAttribute('data-theme', _themePref);
+} catch (e) {}
+</script>
 <style>
 /* ============ Fonte das cifras: Roboto Mono (a mesma do CifraClub), embutida ============
  * Garante renderização idêntica à do site e funciona offline. */
@@ -56,7 +68,7 @@
   --surface3: #eceef0;
   --text: #191c1e;
   --muted: #5d5b6b;
-  --faint: #777587;
+  --faint: #6f6d80;
   --accent: #3525cd;
   --accent-hi: #4b4dd8;
   --accent-ink: #ffffff;
@@ -140,7 +152,7 @@
 html, body { height: 100%; }
 /* iOS: não inflar texto em paisagem; toques rápidos não disparam zoom de duplo toque */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-button, a, .chip, .songitem, .chord-card, input, label { touch-action: manipulation; }
+button, a, .chip, .songitem, input, label { touch-action: manipulation; }
 body {
   font-family: var(--font-sans);
   background: var(--bg); color: var(--text);
@@ -149,7 +161,7 @@ body {
   transition: background-color .25s var(--ease), color .25s var(--ease);
 }
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-input, textarea, select { font: inherit; color: inherit; }
+input, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 ::selection { background: var(--accent-soft); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -182,6 +194,7 @@ img { max-width: 100%; }
 .sectionhead .linklike {
   font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
   color: var(--accent); padding: 4px 2px;
+  display: inline-flex; align-items: center; min-height: 44px;
 }
 .sectionhead .linklike:active { opacity: .6; }
 
@@ -191,6 +204,8 @@ img { max-width: 100%; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: calc(8px + var(--safe-top)) 18px 8px;
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
   display: flex; align-items: center; gap: 10px; min-height: 56px;
 }
 #topbar .brand {
@@ -208,7 +223,13 @@ img { max-width: 100%; }
 #netBadge.off { background: var(--surface2); color: var(--muted); }
 #netBadge.off::before { background: var(--muted); }
 
-main { padding: 22px 18px calc(96px + var(--safe-bottom)); max-width: 1024px; margin: 0 auto; }
+/* iPhone em paisagem (o caso do palco): o entalhe/ilha come a lateral. */
+main {
+  padding: 22px 18px calc(96px + var(--safe-bottom));
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+  max-width: 1024px; margin: 0 auto;
+}
 
 #tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
@@ -217,6 +238,8 @@ main { padding: 22px 18px calc(96px + var(--safe-bottom)); max-width: 1024px; ma
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
   padding-bottom: var(--safe-bottom);
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
 }
 @supports not (background: color-mix(in srgb, red 50%, blue)) {
   #tabbar { background: var(--surface); }
@@ -488,20 +511,30 @@ input:focus, textarea:focus {
 .checkrow input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
 .checkrow .done { color: var(--ok); font-size: 12.5px; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
-/* ---------- Tela da playlist ---------- */
-#plscreen {
-  position: fixed; inset: 0; z-index: 55; background: var(--bg);
+/* ---------- Telas cheias: playlist, artista e visualizador ----------
+ * As três têm a mesma moldura (fixa, em coluna, cabeçalho de superfície e
+ * corpo rolável); só mudam o z-index e detalhes do cabeçalho. */
+#plscreen, #artistscreen, #viewer {
+  position: fixed; inset: 0; background: var(--bg);
   display: none; flex-direction: column;
 }
-#plscreen.open { display: flex; animation: viewerIn .25s var(--ease); }
-#plshead {
+#plscreen, #artistscreen { z-index: 55; }
+#viewer { z-index: 60; }
+#plscreen.open, #artistscreen.open, #viewer.open { display: flex; animation: viewerIn .25s var(--ease); }
+#plshead, #ashead, #vhead {
   background: var(--surface); border-bottom: 1px solid var(--border);
   padding: calc(6px + var(--safe-top)) 10px 10px;
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
 }
-#plshead .l1 { display: flex; align-items: center; gap: 6px; }
-#plshead .titles { flex: 1; min-width: 0; padding: 0 2px; }
-#plshead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#plshead .va { font-size: 13px; color: var(--muted); }
+#vhead { padding-bottom: 8px; }
+#plshead .l1, #ashead .l1, #vhead .l1 { display: flex; align-items: center; gap: 6px; }
+#plshead .titles, #ashead .titles, #vhead .titles { flex: 1; min-width: 0; padding: 0 2px; }
+#plshead .vt, #ashead .vt, #vhead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#plshead .va, #ashead .va, #vhead .va { font-size: 13px; color: var(--muted); }
+#vhead .va { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Tela da playlist ---------- */
 .plsbar {
   display: flex; align-items: center; gap: 10px; margin-top: 10px;
   padding: 0 4px; flex-wrap: wrap;
@@ -513,12 +546,12 @@ input:focus, textarea:focus {
   margin-left: auto;
 }
 .viewtoggle button {
-  min-width: 38px; min-height: 32px; border-radius: 8px; color: var(--muted);
+  min-width: 44px; min-height: 44px; border-radius: 8px; color: var(--muted);
   display: grid; place-items: center;
   transition: background .15s, color .15s;
 }
 .viewtoggle button.on { background: var(--accent); color: var(--accent-ink); }
-#plsscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+#plsscroll, #asscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(24px + var(--safe-bottom)); }
 .plcards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 @media (min-width: 700px) { .plcards { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1000px) { .plcards { grid-template-columns: repeat(4, 1fr); } }
@@ -544,42 +577,18 @@ input:focus, textarea:focus {
 .songcard .pnote { margin-top: 8px; }
 
 /* ---------- Tela do artista ---------- */
-#artistscreen {
-  position: fixed; inset: 0; z-index: 55; background: var(--bg);
-  display: none; flex-direction: column;
-}
-#artistscreen.open { display: flex; animation: viewerIn .25s var(--ease); }
-#ashead {
-  background: var(--surface); border-bottom: 1px solid var(--border);
-  padding: calc(6px + var(--safe-top)) 10px 10px;
-}
-#ashead .l1 { display: flex; align-items: center; gap: 6px; }
-#ashead .titles { flex: 1; min-width: 0; padding: 0 2px; }
-#ashead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#ashead .va { font-size: 13px; color: var(--muted); }
-#asscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+/* moldura, cabeçalho e rolagem: ver "Telas cheias" acima */
 
 /* ---------- Visualizador ---------- */
-#viewer {
-  position: fixed; inset: 0; z-index: 60; background: var(--bg);
-  display: none; flex-direction: column;
-}
-#viewer.open { display: flex; animation: viewerIn .25s var(--ease); }
+/* moldura e cabeçalho: ver "Telas cheias" acima */
 @keyframes viewerIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-#vhead {
-  background: var(--surface); border-bottom: 1px solid var(--border);
-  padding: calc(6px + var(--safe-top)) 10px 8px;
-}
-#vhead .l1 { display: flex; align-items: center; gap: 6px; }
-#vhead .titles { flex: 1; min-width: 0; padding: 0 2px; }
-#vhead .vt { font-weight: 800; font-size: 16.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#vhead .va { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .iconbtn {
-  width: 42px; height: 42px; display: grid; place-items: center;
+  width: 44px; height: 44px; display: grid; place-items: center;
   border-radius: 11px; color: var(--muted);
   transition: background .15s, color .15s, transform .12s var(--ease);
 }
 .iconbtn:active { background: var(--accent-soft); color: var(--accent); transform: scale(.92); }
+.iconbtn:disabled { opacity: .4; cursor: default; transform: none; }
 @media (hover: hover) {
   .iconbtn:hover { background: var(--surface2); color: var(--text); }
 }
@@ -589,7 +598,7 @@ input:focus, textarea:focus {
   border-radius: 11px; padding: 2px; flex-shrink: 0;
 }
 .toolgroup button {
-  min-width: 40px; min-height: 34px; padding: 4px 10px;
+  min-width: 44px; min-height: 44px; padding: 4px 10px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 700; border-radius: 9px; color: var(--accent);
   transition: background .15s, transform .12s var(--ease);
@@ -597,25 +606,56 @@ input:focus, textarea:focus {
 .toolgroup button:active { background: var(--accent-soft); transform: scale(.92); }
 .toolgroup .val { font-size: 12.5px; font-weight: 700; min-width: 46px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
 #vscroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+/* recebe foco por JS (teclado/pedal): foca sem desenhar contorno na cifra */
+#vscroll:focus, #vscroll:focus-visible { outline: none; }
 #vpre {
   font-family: var(--font-mono);
   padding: 18px 16px calc(44px + var(--safe-bottom));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   line-height: 1.6; white-space: pre; tab-size: 8; /* mesmos valores do CSS do CifraClub */
 }
 #vpre b.ch { color: var(--chord); font-weight: 700; cursor: pointer; border-radius: 3px; }
 #vpre b.ch:active { background: var(--accent-soft); }
 
 /* ---------- Rolagem automática ---------- */
-#vScrollPlay { width: 38px; height: 38px; border: 1px solid var(--border); background: var(--surface2); margin-right: 2px; }
+#vScrollPlay { width: 44px; height: 44px; border: 1px solid var(--border); background: var(--surface2); margin-right: 2px; }
 #vScrollPlay.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 /* ---------- Modo palco (barra compacta continua visível: play e ajustes à mão) ---------- */
-#viewer.stage #vnav { display: none; }
 #viewer.stage #vhead { padding-bottom: 6px; }
 #viewer.stage #vpre { font-weight: 500; }
 #viewer.stage #vpre b.ch { text-shadow: 0 0 1px currentColor; }
+
+/* A navegação da playlist CONTINUA no palco, só que discreta: escondê-la
+ * custava 4 toques (engrenagem → sair do palco → próxima → voltar ao palco)
+ * entre uma música e a seguinte, no meio da apresentação. */
+#viewer.stage #vnav {
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-top-color: transparent;
+  padding-top: 4px; padding-bottom: calc(4px + var(--safe-bottom));
+}
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  #viewer.stage #vnav { background: var(--surface); }
+}
+#viewer.stage #vnav .pos { font-size: 11.5px; opacity: .8; }
+
+/* Duas colunas no palco (iPad em paisagem). As colunas têm a ALTURA DA TELA e o
+ * texto transborda para a direita: lê-se coluna esquerda → coluna direita e
+ * vira-se a "página" rolando na horizontal. Com a altura automática de antes, a
+ * coluna 1 guardava a primeira metade inteira da música e era preciso rolar até
+ * o fim e voltar ao topo para começar a ler a coluna 2. */
 @media (orientation: landscape) and (min-width: 900px) {
-  #viewer.stage #vpre { column-count: 2; column-gap: 40px; column-rule: 1px solid var(--border); }
+  #viewer.stage #vscroll {
+    overflow-x: auto; overflow-y: hidden;
+    overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+  }
+  #viewer.stage #vpre {
+    height: 100%;
+    column-count: 2; column-gap: 40px; column-rule: 1px solid var(--border);
+    column-fill: auto;
+  }
 }
 
 /* ---------- Diagrama de acorde ---------- */
@@ -638,13 +678,22 @@ input:focus, textarea:focus {
   font-size: 12.5px; color: var(--pill-ink); background: var(--pill-bg);
   border-radius: 7px; padding: 1px 8px; margin-top: 3px;
   display: none; max-width: fit-content;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* a nota da playlist é a deixa do músico ("começa no refrão"): cabe em até
+   * 2 linhas antes de cortar, em vez de sumir numa reticência */
+  white-space: normal; line-height: 1.3; max-height: 2.6em;
+  overflow: hidden; overflow-wrap: anywhere;
 }
+/* tom atual: fica sempre à vista no cabeçalho, sem abrir a engrenagem */
+#vhead #vKeyHead { display: inline-block; }
+#vhead #vKeyHead:empty { display: none; }
 #vnav {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: var(--surface); border-top: 1px solid var(--border);
   padding: 8px 14px calc(8px + var(--safe-bottom));
+  padding-left: max(14px, env(safe-area-inset-left, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
 }
+#vnav .btn { min-height: 44px; }
 #vnav .pos { font-size: 13px; color: var(--muted); text-align: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Modal (folha inferior) ---------- */
@@ -656,10 +705,16 @@ input:focus, textarea:focus {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--surface); border-radius: 22px 22px 0 0;
-  width: 100%; max-width: 680px; max-height: 88vh; overflow: auto;
+  width: 100%; max-width: 680px; overflow: auto;
+  /* vh conta a barra dinâmica do Safari como se estivesse escondida, e o topo
+   * da folha (título e primeiros controles) ficava fora da tela. */
+  max-height: 88vh;
   padding: 10px 18px calc(20px + var(--safe-bottom));
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
   box-shadow: var(--shadow);
 }
+@supports (max-height: 100dvh) { .modal { max-height: 88dvh; } }
 .modal-bg.open .modal { animation: sheetUp .28s var(--ease); }
 @keyframes sheetUp { from { transform: translateY(40px); opacity: .6; } to { transform: none; opacity: 1; } }
 .modal::before {
@@ -667,10 +722,13 @@ input:focus, textarea:focus {
   background: var(--border); margin: 4px auto 14px;
 }
 .modal h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; letter-spacing: -.01em; }
-.modal label { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 14px 0 6px; }
+/* .label: mesmo visual do <label>, para títulos de grupo que não rotulam um
+ * campo específico (um grupo de botões, por exemplo) e não podem ser <label> */
+.modal label, .modal .label { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 14px 0 6px; }
 .modal textarea { font-family: var(--font-mono); font-size: 12.5px; white-space: pre; min-height: 200px; }
 
 #settings textarea { font-family: var(--font-mono); font-size: 12.5px; min-height: 90px; white-space: pre; }
+#pasteInput { font-family: var(--font-mono); font-size: 12.5px; min-height: 140px; white-space: pre; }
 details { margin-top: 10px; }
 details summary { cursor: pointer; font-size: 14px; color: var(--accent); font-weight: 600; padding: 4px 0; }
 details pre {
@@ -681,6 +739,13 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 .plitem { display: flex; align-items: center; gap: 6px; }
 /* alça de arrastar: touch-action none para o dedo arrastar o item, não a página */
 .plitem .draghandle { touch-action: none; cursor: grab; color: var(--muted); width: 36px; height: 36px; }
+/* Os botões da linha (arrastar, nota, remover) são 36px visuais. O ::after
+ * estende só a área sensível ao toque para 44px, sem mexer no desenho. */
+.plitem .iconbtn { position: relative; }
+.plitem .iconbtn::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
 /* durante o arrasto o item real vira o marcador do lugar de destino… */
 .plitem.dragging { opacity: .3; border-style: dashed; transform: none; }
 /* …e uma cópia (fantasma) segue o ponteiro */
@@ -697,8 +762,17 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
   z-index: 100; opacity: 0; pointer-events: none;
   transition: opacity .25s var(--ease), transform .25s var(--ease);
   max-width: 90vw; text-align: center; box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* o balão é atravessável ao toque; o botão de ação ("Próxima ▶") não pode ser */
+#toast button {
+  pointer-events: auto; flex-shrink: 0;
+  margin-left: 8px; padding: 6px 16px; min-height: 44px;
+  border-radius: 99px; font-size: 13.5px; font-weight: 700;
+  background: var(--bg); color: var(--text);
+}
+#toast button:active { transform: scale(.96); }
 
 /* ---------- Telas estreitas (celular) ---------- */
 /* Nada pode alargar o layout viewport: se algo vazar, corta em vez de
@@ -713,7 +787,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
  * focar — e o zoom fica. Com 16px o navegador não mexe na escala. */
 @media (pointer: coarse) {
   input[type=text], input[type=search], textarea,
-  .modal textarea, #settings textarea, #pasteInput { font-size: 16px !important; }
+  .modal textarea, #settings textarea, #pasteInput { font-size: 16px; }
 }
 
 /* filhos de grid nunca estouram a coluna (min-width automático de grid) */
@@ -724,8 +798,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
   .searchcols aside { order: 2; }
 }
 @media (max-width: 480px) {
-  main { padding-left: 14px; padding-right: 14px; }
-  #topbar { padding-left: 14px; padding-right: 14px; }
+  main { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  #topbar { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
   /* Playlists: título e botões empilhados, botões em largura total */
   .pagehead { flex-direction: column; align-items: stretch; }
   .pagehead .row { display: flex; }
@@ -734,12 +808,12 @@ html, body { overflow-x: hidden; max-width: 100%; }
   .songitem { padding: 10px 12px; gap: 10px; }
   .songitem .rowic { display: none; }
   .plitem .pill { display: none; }
-  /* visualizador: cabeçalho e ferramentas mais compactos */
-  #vhead .iconbtn { width: 37px; height: 40px; }
-  .toolgroup button { min-width: 34px; padding: 4px 8px; }
+  /* visualizador: ferramentas mais compactas, sem encolher o alvo de toque
+   * (os .iconbtn já são 44×44 em todas as telas) */
+  .toolgroup button { padding: 4px 6px; }
   .toolgroup .val { min-width: 40px; }
   .artist-grid { gap: 10px; }
-  .modal { padding-left: 14px; padding-right: 14px; }
+  .modal { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
   .card { padding: 15px; }
 }
 @media (max-width: 374px) {
@@ -936,7 +1010,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
     <div class="card" style="margin-top:16px">
       <h2>Colar manualmente</h2>
       <p class="muted" style="margin-bottom:8px">Cole o texto da cifra (acordes em linhas acima da letra) ou o HTML de uma página do CifraClub. Funciona 100% offline.</p>
-      <textarea id="pasteInput" style="font-family:var(--font-mono);font-size:12.5px;white-space:pre;min-height:140px" placeholder="[Intro] C  Am  F  G&#10;&#10;        C&#10;Primeira linha da letra…" aria-label="Texto da cifra"></textarea>
+      <textarea id="pasteInput" placeholder="[Intro] C  Am  F  G&#10;&#10;        C&#10;Primeira linha da letra…" aria-label="Texto da cifra"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="btn" id="pasteImportBtn">Importar texto</button>
       </div>
@@ -952,7 +1026,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   </section>
 </main>
 
-<nav id="tabbar">
+<nav id="tabbar" aria-label="Navegação principal">
   <button data-view="home" class="active" aria-label="Início">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início
   </button>
@@ -980,6 +1054,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="titles">
         <div class="vt" id="vTitle"></div>
         <div class="va" id="vArtist"></div>
+        <div class="vn" id="vKeyHead"></div>
         <div class="vn" id="vNote"></div>
         <div class="vn" id="vCapoBadge"></div>
         <div class="chips" id="vVersions" style="display:none;margin:6px 0 0"></div>
@@ -1006,12 +1081,12 @@ html, body { overflow-x: hidden; max-width: 100%; }
 
 <!-- ================= MODAIS ================= -->
 <div class="modal-bg" id="modalEdit">
-  <div class="modal">
-    <h3>Editar cifra</h3>
-    <label>Título</label><input type="text" id="eTitle">
-    <label>Artista</label><input type="text" id="eArtist">
-    <label>Tom original</label><input type="text" id="eKey" style="width:90px">
-    <label>Conteúdo — acordes entre &lt; &gt;, ex.: &lt;Am7&gt;</label>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalEditT">
+    <h3 id="modalEditT">Editar cifra</h3>
+    <label for="eTitle">Título</label><input type="text" id="eTitle">
+    <label for="eArtist">Artista</label><input type="text" id="eArtist">
+    <label for="eKey">Tom original</label><input type="text" id="eKey" style="width:90px">
+    <label for="eContent">Conteúdo — acordes entre &lt; &gt;, ex.: &lt;Am7&gt;</label>
     <textarea id="eContent" spellcheck="false"></textarea>
     <div class="row" style="margin-top:16px">
       <button class="btn" id="eSave">Salvar</button>
@@ -1021,8 +1096,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalPl">
-  <div class="modal">
-    <h3>Adicionar à playlist</h3>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalPlT">
+    <h3 id="modalPlT">Adicionar à playlist</h3>
     <div id="plPick"></div>
     <div class="row" style="margin-top:16px">
       <input type="text" id="plPickNew" placeholder="…ou nova playlist" style="flex:1;width:auto">
@@ -1035,8 +1110,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalNewPl">
-  <div class="modal">
-    <h3>Nova playlist</h3>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalNewPlT">
+    <h3 id="modalNewPlT">Nova playlist</h3>
     <div class="row">
       <input type="text" id="plName" placeholder="Nome da playlist" style="flex:1;width:auto">
       <button class="btn" id="plCreate">Criar</button>
@@ -1101,8 +1176,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalPlMenu">
-  <div class="modal" style="max-width:420px">
-    <h3>Opções da playlist</h3>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalPlMenuT" style="max-width:420px">
+    <h3 id="modalPlMenuT">Opções da playlist</h3>
     <div class="row">
       <button class="btn sm ghost" id="plDetailRen">Renomear</button>
       <button class="btn sm ghost" id="plDetailExport">Exportar</button>
@@ -1115,8 +1190,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalTools">
-  <div class="modal" style="max-width:440px">
-    <h3>Ajustes da cifra</h3>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalToolsT" style="max-width:440px">
+    <h3 id="modalToolsT">Ajustes da cifra</h3>
     <div class="row">
       <button class="btn sm subtle" id="vFav">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="vFavPath" d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
@@ -1133,7 +1208,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <button class="btn sm subtle" id="vEdit">Editar</button>
       <button class="btn sm danger" id="vDelete">Excluir</button>
     </div>
-    <label>Tom <span class="muted" id="vCapo" style="text-transform:none;letter-spacing:0;margin-left:6px"></span></label>
+    <div class="label">Tom <span class="muted" id="vCapo" style="text-transform:none;letter-spacing:0;margin-left:6px"></span></div>
     <div class="toolgroup" style="width:max-content">
       <button id="vTransDown" aria-label="Transpor meio tom abaixo">♭</button>
       <span class="val" id="vKey">—</span>
@@ -1142,7 +1217,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       </button>
     </div>
-    <label>Capotraste</label>
+    <div class="label">Capotraste</div>
     <div class="row" style="align-items:center">
       <button class="btn sm subtle" id="vCapoToggle">Usar capotraste</button>
       <div class="toolgroup" id="vCapoGroup" style="width:max-content">
@@ -1151,19 +1226,19 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <button id="vCapoUp" aria-label="Capotraste uma casa acima">+</button>
       </div>
     </div>
-    <label>Tamanho da fonte</label>
+    <div class="label">Tamanho da fonte</div>
     <div class="toolgroup" style="width:max-content">
       <button id="vFontDown" style="font-size:13px" aria-label="Diminuir fonte">A−</button>
       <span class="val" id="vFontVal"></span>
       <button id="vFontUp" aria-label="Aumentar fonte">A+</button>
     </div>
-    <label>Velocidade da rolagem automática</label>
+    <div class="label">Velocidade da rolagem automática</div>
     <div class="toolgroup" style="width:max-content">
       <button id="vScrollDown" aria-label="Rolar mais devagar">−</button>
       <span class="val" id="vScrollVal"></span>
       <button id="vScrollUp" aria-label="Rolar mais rápido">+</button>
     </div>
-    <label>Tela</label>
+    <div class="label">Tela</div>
     <button class="btn subtle sm" id="vStage">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
       <span id="vStageLabel">Entrar no modo palco</span>
@@ -1175,7 +1250,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalChord">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Diagrama do acorde" style="max-width:420px">
     <div id="chordBox"></div>
     <div class="row" style="justify-content:center">
       <button class="btn ghost sm" id="chordClose">Fechar</button>
@@ -1184,8 +1259,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
 </div>
 
 <div class="modal-bg" id="modalSettings">
-  <div class="modal" id="settings">
-    <h3>Ajustes</h3>
+  <div class="modal" id="settings" role="dialog" aria-modal="true" aria-labelledby="modalSettingsT">
+    <h3 id="modalSettingsT">Ajustes</h3>
     <div class="card">
       <h2>Aparência</h2>
       <div class="chips" id="themeChips" style="margin:0">
@@ -1209,22 +1284,25 @@ html, body { overflow-x: hidden; max-width: 100%; }
     <div class="card">
       <h2>Sincronização entre aparelhos</h2>
       <p class="muted" style="margin-bottom:4px">Mantém cifras e playlists iguais em todos os seus aparelhos, via um Worker gratuito da Cloudflare. Use a <b>mesma URL e a mesma chave</b> em todos. Quem tem a chave acessa a biblioteca — trate como senha.</p>
-      <label>URL do Worker</label>
+      <label for="syncUrl">URL do Worker</label>
       <div class="row">
         <input type="text" id="syncUrl" placeholder="https://cifras-sync.gutuler.workers.dev" inputmode="url" style="flex:1;width:auto">
         <button class="btn sm ghost" id="syncUrlDefault">Usar padrão</button>
       </div>
-      <label>Chave de sincronização</label>
+      <label for="syncKey">Chave de sincronização</label>
       <div class="row">
-        <input type="text" id="syncKey" placeholder="CIFRAS-XXXX-XXXX-XXXX-XXXX" style="flex:1;width:auto;font-family:var(--font-mono)" autocomplete="off">
+        <input type="password" id="syncKey" placeholder="CIFRAS-XXXX-XXXX-XXXX-XXXX" style="flex:1;width:auto;font-family:var(--font-mono)" autocomplete="off">
+        <button class="btn sm ghost" id="syncKeyShow" title="Mostrar ou ocultar a chave">Mostrar</button>
         <button class="btn sm ghost" id="syncGenKey">Gerar</button>
       </div>
       <label class="checkrow" style="border:none;padding-left:0"><input type="checkbox" id="syncAuto" checked> Sincronizar automaticamente</label>
       <div class="row">
         <button class="btn sm" id="syncNow">Sincronizar agora</button>
         <button class="btn sm ghost" id="syncSave">Salvar</button>
+        <button class="btn sm ghost danger" id="syncWipeServer">Apagar do servidor</button>
       </div>
       <p class="muted" id="syncStatus" style="margin-top:8px"></p>
+      <button class="btn sm danger" id="syncForce" style="display:none;margin-top:6px">Substituir a cópia do servidor pela deste aparelho</button>
       <details>
         <summary>Como criar o Worker (uma vez, grátis)</summary>
         <p class="muted" style="margin-top:6px">No painel da Cloudflare: <b>Workers &amp; Pages → Create Worker</b>, cole o código de <code>worker/sync-worker.js</code> do repositório do app, crie um KV namespace e vincule como <code>SYNC_KV</code>. Ou, com o repositório clonado: <code>cd worker &amp;&amp; npx wrangler kv namespace create SYNC_KV &amp;&amp; npx wrangler deploy</code>.</p>
@@ -1292,7 +1370,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 'use strict';
@@ -1308,10 +1386,18 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const CH_OPEN = '\u0011', CH_CLOSE = '\u0012'; // delimitadores internos de acorde
 const TOKEN_RE = /\u0011([^\u0012]*)\u0012/g;
 
-const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* tolerante a null/número (dados de backup/sync podem vir tortos) e escapa aspas — também é usado em atributos */
+const escHtml = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.floor(Math.random()*1e9));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+/* Relógio corrigido pelo desvio medido contra o Worker (X-Sync-Time). Os carimbos updatedAt e
+ * as lápides decidem quem vence no merge entre aparelhos — com o relógio errado este aparelho
+ * ganharia (ou perderia) sempre. Use em todo carimbo que participa do sync, nunca Date.now(). */
+const now = () => Date.now() + (SYNC.clockSkew || 0);
+const hostOf = u => { try { return new URL(u).host; } catch { return '?'; } };
+/* mensagem legível pra erro de rede: o AbortError do timeout vinha como "The user aborted a request" */
+const netErr = (e, url) => e?.name === 'AbortError' ? new Error(`tempo esgotado (${hostOf(url)})`) : e;
 
 /* ícones SVG inline (traço estilo Lucide) para HTML gerado via JS */
 const svg = (p, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -1377,6 +1463,7 @@ function openDB() {
       _dbOpening = null;
       // se outra aba pedir upgrade no futuro, solta a conexão em vez de bloquear
       _db.onversionchange = () => { try { _db.close(); } catch {} _db = null; };
+      _db.onclose = () => { _db = null; }; // fechado pelo navegador (ex.: limpeza de dados): reabre na próxima operação
       res(_db);
     };
     rq.onerror = () => { _dbOpening = null; rej(rq.error); };
@@ -1391,8 +1478,28 @@ async function tx(store, mode, fn) {
     const out = fn(s);
     t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
     t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error || new Error('transação abortada'));
   });
 }
+/* várias gravações/exclusões numa transação só, SEM marcar sujo (uso interno: sync e restauração).
+ * onProgress(i, n) é chamado conforme os puts completam — dá pra mostrar andamento no meio */
+async function dbWriteRaw(store, puts = [], dels = [], onProgress) {
+  if (!puts.length && !dels.length) return;
+  const db = await openDB();
+  await new Promise((res, rej) => {
+    const t = db.transaction(store, 'readwrite');
+    const s = t.objectStore(store);
+    for (const id of dels) s.delete(id);
+    puts.forEach((o, i) => {
+      const rq = s.put(o);
+      if (onProgress && (i % 25 === 0 || i === puts.length - 1)) rq.onsuccess = () => onProgress(i + 1, puts.length);
+    });
+    t.oncomplete = () => res();
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error || new Error('transação abortada'));
+  });
+}
+const dbPutMany = (store, objs, onProgress) => { if (objs.length) markDirty(store); return dbWriteRaw(store, objs, [], onProgress); };
 const dbAll = async store => {
   const db = await openDB();
   return new Promise((res, rej) => {
@@ -1400,10 +1507,13 @@ const dbAll = async store => {
     rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
   });
 };
-/* toda escrita em cifras/playlists marca a biblioteca como "suja" para o sync */
-const dbPut = (store, obj) => { markDirty(store); return tx(store, 'readwrite', s => s.put(obj)); };
-const dbDel = (store, id) => { markDirty(store); return tx(store, 'readwrite', s => s.delete(id)); };
-const dbClear = store => { markDirty(store); return tx(store, 'readwrite', s => s.clear()); };
+/* toda escrita em cifras/playlists marca a biblioteca como "suja" para o sync.
+ * Falha de gravação (cota cheia, banco fechado) avisa na tela; a rejeição continua subindo */
+const dbFail = e => { toast('Não foi possível salvar: ' + (e?.message || e), 5000); throw e; };
+const dbPut = (store, obj) => { markDirty(store); return tx(store, 'readwrite', s => s.put(obj)).catch(dbFail); };
+const dbDel = (store, id) => { markDirty(store); return tx(store, 'readwrite', s => s.delete(id)).catch(dbFail); };
+const dbClearRaw = store => tx(store, 'readwrite', s => s.clear());
+const dbClear = store => { markDirty(store); return dbClearRaw(store); };
 
 async function getSetting(key, def) {
   const db = await openDB();
@@ -1419,12 +1529,38 @@ const setSetting = (key, value) => dbPut('settings', { key, value });
 let SONGS = [];      // [{id,title,artist,artistSlug,songSlug,originalKey,capo,transpose,content,createdAt}]
 let PLAYLISTS = [];  // [{id,name,songIds:[],createdAt,updatedAt}]
 
+/* Chave de ordenação pré-calculada (norm() é caro): fica em s._k NÃO enumerável, então não vai
+ * pro IndexedDB (structured clone), pro JSON do sync/backup nem pro spread {...s}.
+ * Recalcula sozinha se título/artista mudarem no objeto. */
+function songKey(s) {
+  let k = s._k;
+  if (!k || k.title !== s.title || k.artist !== s.artist) {
+    k = { a: norm(s.artist), t: norm(s.title), title: s.title, artist: s.artist };
+    Object.defineProperty(s, '_k', { value: k, enumerable: false, writable: true, configurable: true });
+  }
+  return k;
+}
+function songCmp(a, b) {
+  const ka = songKey(a), kb = songKey(b);
+  return ka.a.localeCompare(kb.a) || ka.t.localeCompare(kb.t);
+}
 async function reloadCache() {
-  SONGS = (await dbAll('songs')).sort((a,b) =>
-    norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title)));
+  SONGS = (await dbAll('songs')).sort(songCmp);
   PLAYLISTS = (await dbAll('playlists')).sort((a,b) => norm(a.name).localeCompare(norm(b.name)));
   buildGroups();
 }
+/* substitui/insere UMA cifra no cache mantendo a ordem (inserção ordenada) — evita reler a
+ * biblioteca inteira a cada cifra salva numa importação em lote */
+function upsertSong(song) {
+  const i = SONGS.findIndex(s => s.id === song.id);
+  if (i >= 0) SONGS.splice(i, 1);
+  let lo = 0, hi = SONGS.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (songCmp(SONGS[mid], song) <= 0) lo = mid + 1; else hi = mid; }
+  SONGS.splice(lo, 0, song);
+  buildGroups();
+}
+const SONG_BY_ID = new Map(); // id -> cifra; montado em buildGroups()
+const songById = id => SONG_BY_ID.get(id);
 /* Versões da mesma música (Principal, Simplificada…) formam um grupo: cada uma continua
  * um registro próprio (tom, capo, conteúdo), mas as listas mostram uma entrada só e o
  * visualizador tem um seletor. Cifras manuais (sem slug) são um grupo de um só. */
@@ -1433,7 +1569,9 @@ let GROUPS = new Map(); // groupKey -> registros, principal primeiro
 let LIB = [];            // uma cifra por grupo — o que as listas mostram
 function buildGroups() {
   GROUPS = new Map();
+  SONG_BY_ID.clear();
   for (const s of SONGS) {
+    SONG_BY_ID.set(s.id, s);
     const k = groupKey(s);
     if (!GROUPS.has(k)) GROUPS.set(k, []);
     GROUPS.get(k).push(s);
@@ -1453,7 +1591,7 @@ const primaryOf = s => versionsOf(s)[0];
 const baseTitle = s => s.versionName ? s.title.replace(/\s*\([^()]*\)\s*$/, '') : s.title;
 let VERPREF = {}; // groupKey -> id da versão preferida (escolhida no seletor)
 /* grava playlist marcando a hora da alteração (mostrado no card) */
-function plPut(pl) { pl.updatedAt = Date.now(); return dbPut('playlists', pl); }
+function plPut(pl) { pl.updatedAt = now(); return dbPut('playlists', pl); }
 
 /* ------------------------- fotos de artista (CifraClub) ------------------------- */
 /* A busca do solr devolve o hash da foto (campo "i"); o CDN sscdn tem CORS
@@ -1529,6 +1667,8 @@ function renderThemeChips() {
 $('#themeChips').addEventListener('click', async e => {
   const c = e.target.closest('.chip'); if (!c) return;
   themePref = c.dataset.t;
+  // espelho leve para o <script> do <head> estampar o tema antes do primeiro paint
+  try { localStorage.setItem('cifras-theme', themePref); } catch (e) {}
   await setSetting('theme', themePref);
   applyTheme();
   renderThemeChips();
@@ -1547,15 +1687,23 @@ function transposeNote(note, n, preferFlat) {
   const ni = ((idx + n) % 12 + 12) % 12;
   return preferFlat ? FLAT_NAMES[ni] : SHARP_NAMES[ni];
 }
-/* transpõe todas as notas dentro de um símbolo de acorde (raiz, baixo etc.) */
+/* transpõe a raiz e o baixo de um símbolo de acorde — só a letra inicial e a que
+ * vem após "/"; maiúsculas no sufixo ("CADD9") não são notas */
 function transposeChord(chord, n, preferFlat) {
-  if (!n) return chord;
-  return chord.replace(/([A-G])(#|b)?/g, (m, l, acc) => transposeNote(l + (acc||''), n, preferFlat));
+  if (!n || !chord) return chord;
+  return chord.replace(/(^|\/)([A-G])(##|bb|#|b)?/g, (m, pre, l, acc) => {
+    if (acc === '##' || acc === 'bb') { // acidente dobrado: resolve pelo índice e sai simples
+      const idx = NOTE_IDX[l] + (acc === '##' ? 2 : -2);
+      return pre + (preferFlat ? FLAT_NAMES : SHARP_NAMES)[((idx + n) % 12 + 12) % 12];
+    }
+    return pre + transposeNote(l + (acc || ''), n, preferFlat);
+  });
 }
-/* decide grafia (bemol/sustenido) a partir do tom original transposto */
+/* decide grafia (bemol/sustenido) a partir do tom original transposto;
+ * tom menor é avaliado pela relativa maior (Gm → Bb: bemóis; C#m → E: sustenidos) */
 function preferFlatFor(originalKey, n) {
-  const m = /^([A-G])(#|b)?/.exec(originalKey || 'C');
-  const idx = m ? NOTE_IDX[m[1] + (m[2]||'')] : 0;
+  const m = /^([A-G])(#|b)?(m(?!aj))?/.exec(originalKey || 'C');
+  const idx = (m ? NOTE_IDX[m[1] + (m[2]||'')] : 0) + (m && m[3] ? 3 : 0);
   return FLAT_CLASSES.has(((idx + n) % 12 + 12) % 12);
 }
 /* Transpõe uma linha compensando a largura dos acordes para preservar
@@ -1593,17 +1741,21 @@ function transposeContent(content, n, originalKey) {
   const pf = preferFlatFor(originalKey, n);
   return content.split('\n').map(l => transposeLine(l, n, pf)).join('\n');
 }
-const CHORD_TOKEN_RE = /^[A-G](##?|bb?)?([^\s\/]*)(\/[A-G](##?|bb?)?)?$/;
+/* sufixo restrito ao vocabulário de acorde ("7/9" e "7(b5)" incluídos) e baixo opcional:
+ * palavras da letra que começam com A–G ("Bom", "Deus", "Amor") não passam */
+const CHORD_TOKEN_RE = /^[A-G](##?|bb?)?(?:m|M|maj|min|dim|aug|sus|add|\d|\/\d|[#b+°ºø()\-])*(?:\/[A-G](##?|bb?)?)?$/;
 function isChordSymbol(s) {
   return CHORD_TOKEN_RE.test(s) && s.length <= 12;
 }
-/* heurística: a linha contém apenas acordes/espaços/rótulos curtos? */
+/* heurística: a linha contém apenas acordes/espaços/rótulos curtos?
+ * Exige um acorde inequívoco (sufixo, acidente ou baixo) ou só letras A–G soltas. */
 function isChordLine(line) {
   const t = line.trim();
   if (!t) return false;
   const words = t.replace(/\[[^\]]*\]/g, ' ').replace(/\((\d+x|x\d+)\)/gi, ' ').trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return false;
-  return words.every(isChordSymbol);
+  if (!words.length || !words.every(isChordSymbol)) return false;
+  const plain = w => /^[A-G]$/.test(w);
+  return words.some(w => !plain(w)) || words.every(plain);
 }
 /* marca acordes com os delimitadores internos em texto puro */
 function tokenizePlainText(text) {
@@ -1638,15 +1790,40 @@ function nextPayload(html) {
 }
 /* versões da cifra no payload — só violão/guitarra (kind 1; ignora letra, Guitar Pro…).
  * A principal fica em /{artista}/{musica}/, as outras em /{artista}/{musica}/{slug}.html */
+/* devolve o texto do array/objeto JSON que começa em text[start] (contagem de colchetes, pulando strings) */
+function sliceJson(text, start) {
+  let depth = 0, inStr = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '[' || c === '{') depth++;
+    else if (c === ']' || c === '}') { if (--depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
 function parseVersions(payload) {
   const out = [];
+  const add = (id, kind, name, slug) => {
+    if (+kind === 1 && slug && !out.some(v => v.slug === slug)) out.push({ id: +id, name: String(name || slug), slug: String(slug) });
+  };
+  // extrai o array "versions" inteiro e faz JSON.parse — não depende da ordem das chaves
+  const tag = '"versions":[';
+  for (let i = payload.indexOf(tag); i >= 0; i = payload.indexOf(tag, i + 1)) {
+    try {
+      const arr = JSON.parse(sliceJson(payload, i + tag.length - 1) || '[]');
+      for (const v of arr) if (v && typeof v === 'object') add(v.id, v.instrument?.kind, v.label?.name, v.label?.slug);
+    } catch {}
+  }
+  if (out.length) return out;
+  // fallback: o formato antigo (ordem exata das chaves)
   const re = /\{"id":(\d+),"instrument":\{"kind":(\d+),"name":"[^"]*","slug":"[^"]*"\},"label":\{"name":"([^"]*)","slug":"([^"]*)"\}/g;
   let m;
-  while ((m = re.exec(payload))) {
-    if (m[2] === '1' && !out.some(v => v.slug === m[4])) out.push({ id: +m[1], name: m[3], slug: m[4] });
-  }
+  while ((m = re.exec(payload))) add(m[1], m[2], m[3], m[4]);
   return out;
 }
+/* tom a partir do primeiro acorde: "Cmaj7" e "C7M" são C (maior); "Cm7" é Cm */
+const keyFromChord = ch => { const m = /^([A-G](?:#|b)?)(m(?!aj))?/.exec(ch || ''); return m ? m[1] + (m[2] || '') : ''; };
 function ldArtistName(html) {
   for (const m of html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)) {
     try { const n = JSON.parse(m[1])?.byArtist?.name; if (n) return String(n).trim(); } catch {}
@@ -1685,13 +1862,17 @@ function parseCifraHTML(html, sourceUrl) {
   const pres = [...doc.querySelectorAll('pre')];
   if (!pres.length) throw new Error('Página sem conteúdo de cifra (<pre> não encontrado)');
   const main = pres.find(p => p.hasAttribute('data-chord-content'));
+  // juntar todos os <pre> só vale pra página antiga/impressão; se o atributo existe em algum
+  // lugar e o <pre> não veio, a página chegou quebrada — não salvar lixo por cima da cifra
+  if (!main && html.includes('data-chord-content')) throw new Error('Página veio incompleta (cifra não encontrada)');
   let content = (main ? preToTokens(main) : pres.map(preToTokens).join('\n'))
     .replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').replace(/\s+$/, '');
+  if (content.indexOf(CH_OPEN) === -1) throw new Error('A página não tem acordes (só letra?)');
 
   if (!key) { // fallback: primeiro acorde
     const first = TOKEN_RE.exec(content);
     TOKEN_RE.lastIndex = 0;
-    if (first) key = first[1].replace(/^([A-G](?:#|b)?m?).*/, '$1');
+    if (first) key = keyFromChord(first[1]);
   }
 
   let artistSlug = '', songSlug = '';
@@ -1787,7 +1968,7 @@ async function fetchCifraClub(url, validate, { signal, budgetMs = 45000 } = {}) 
       if (signal?.aborted) throw new Error('cancelado');
       if (e.status === 404 && /^https:\/\/cifras-sync\./.test(target))
         throw new Error('Página não existe no CifraClub (404)');
-      lastErr = e;
+      lastErr = netErr(e, target);
     }
   }
   throw new Error('Não foi possível baixar. Último erro: ' + (lastErr?.message || lastErr));
@@ -1799,41 +1980,65 @@ const artistUrl = slug => `https://www.cifraclub.com.br/${slug}/musicas.html`;
 
 /* busca (API pública do CifraClub, com CORS liberado — funciona sem proxy) */
 async function ccSearch(q) {
-  const raw = await fetchText('https://solr.sscdn.co/cc/h2/?q=' + encodeURIComponent(q), 12000);
+  const url = 'https://solr.sscdn.co/cc/h2/?q=' + encodeURIComponent(q);
+  const raw = await fetchText(url, 12000).catch(e => { throw netErr(e, url); });
   const json = JSON.parse(raw.replace(/^[^(]*\(/, '').replace(/\)\s*$/, ''));
   return (json.response?.docs || []).map(d => ({
     type: d.t === '1' ? 'artist' : 'song',
     title: d.m || d.a, artist: d.a, artistSlug: d.d, songSlug: d.u,
-    img: d.i || '',
+    img: /^[\w.\-\/]+$/.test(d.i || '') ? d.i : '', // vai direto num src: só hash/caminho simples
   })).filter(d => d.artistSlug);
 }
 
 /* ------------------------- salvar música ------------------------- */
+/* Com slug, só o mesmo slug + versão é a mesma cifra: homônimas (/musica/ e /musica-2/) do
+ * mesmo artista NÃO podem casar por título — sobrescrevia a outra. Título/artista só vale
+ * entre cifras manuais (ambas sem slug), e nunca pra "Sem título". */
 function findExisting(parsed) {
-  const ver = parsed.versionSlug || ''; // cada versão (ex.: simplificada) é uma cifra própria
-  return SONGS.find(s =>
-    (parsed.artistSlug && parsed.songSlug && s.artistSlug === parsed.artistSlug && s.songSlug === parsed.songSlug
-      && (s.versionSlug || '') === ver) ||
-    (norm(s.title) === norm(parsed.title) && norm(s.artist) === norm(parsed.artist)));
+  if (parsed.artistSlug && parsed.songSlug) {
+    const ver = parsed.versionSlug || ''; // cada versão (ex.: simplificada) é uma cifra própria
+    return SONGS.find(s => s.artistSlug === parsed.artistSlug && s.songSlug === parsed.songSlug && (s.versionSlug || '') === ver);
+  }
+  const t = norm(parsed.title);
+  if (!t || t === 'sem titulo') return undefined;
+  return SONGS.find(s => !s.artistSlug && !s.songSlug && norm(s.title) === t && norm(s.artist) === norm(parsed.artist));
 }
+/* Salva a cifra baixada/colada. Não recarrega a biblioteca: atualiza o cache em memória
+ * (upsertSong) — quem importa em lote dá um reloadCache() só no fim. */
 async function saveSong(parsed) {
   const existing = findExisting(parsed);
+  const ts = now();
+  if (existing?.edited) {
+    // cifra editada à mão: reimportar/atualizar mantém título, artista, tom e conteúdo do usuário;
+    // só os metadados do CifraClub (slugs, nome da versão) são refrescados
+    const song = { ...existing,
+      artistSlug: parsed.artistSlug || existing.artistSlug || '', songSlug: parsed.songSlug || existing.songSlug || '',
+      ...(parsed.versionSlug ? { versionSlug: parsed.versionSlug, versionName: parsed.versionName || parsed.versionSlug } : {}),
+      updatedAt: ts };
+    await dbPut('songs', song);
+    upsertSong(song);
+    return { song, updated: true, kept: true };
+  }
+  // página truncada/quebrada não pode substituir uma cifra boa
+  if (existing && existing.content && existing.content.indexOf(CH_OPEN) !== -1
+      && parsed.content.length < existing.content.length / 2)
+    throw new Error(`conteúdo veio incompleto (${parsed.content.length} de ${existing.content.length} caracteres) — cifra mantida`);
   const song = {
     id: existing ? existing.id : uid(),
     title: parsed.title, artist: parsed.artist,
     artistSlug: parsed.artistSlug || '', songSlug: parsed.songSlug || '',
     ...(parsed.versionSlug ? { versionSlug: parsed.versionSlug, versionName: parsed.versionName || parsed.versionSlug } : {}),
     originalKey: parsed.originalKey || 'C',
-    capo: parsed.capo || (existing ? existing.capo || '' : ''), // reimportar não apaga capo definido pelo usuário
+    capo: existing ? (existing.capo || '') : (parsed.capo || ''), // o capo é escolha do usuário: reimportar não mexe
     transpose: existing ? (existing.transpose || 0) : 0,
     favorite: existing ? !!existing.favorite : false,
     ...(existing?.hideTabs ? { hideTabs: true } : {}),
     content: parsed.content,
-    createdAt: existing ? existing.createdAt : Date.now(),
-    updatedAt: Date.now(),
+    createdAt: existing ? existing.createdAt : ts,
+    updatedAt: ts,
   };
   await dbPut('songs', song);
-  await reloadCache();
+  upsertSong(song);
   return { song, updated: !!existing };
 }
 
@@ -1863,6 +2068,8 @@ function rerenderLists() {
   if (currentView === 'artists') renderArtistsView();
   if (currentView === 'import') renderRecentImports();
   if (artistScreenKey) renderArtistScreen();
+  if (plDetailId) renderPlScreen(); // tela da playlist aberta por cima da aba (ex.: depois de um sync)
+  lyricPos = 0; scheduleLyricIndex(); // biblioteca mudou: reindexar a letra na ociosidade
 }
 
 /* ------------------------- Início ------------------------- */
@@ -1895,7 +2102,7 @@ function artistCardEl(g) {
       <span class="ct">${g.count} cifra${g.count === 1 ? '' : 's'}</span>
       <span class="nm">${escHtml(g.name)}</span>
     </div>`;
-  el.addEventListener('click', () => openArtistScreen(g.key));
+  activate(el, () => openArtistScreen(g.key));
   return el;
 }
 function renderHome() {
@@ -1915,20 +2122,45 @@ function renderHome() {
     grid.appendChild(artistCardEl(g));
   }
 
-  // favoritas
-  const favs = SONGS.filter(s => s.favorite);
+  // favoritas: uma linha por música (não uma por versão), e o toque abre a versão favoritada
+  const favs = [], favSeen = new Set();
+  for (const s of SONGS) {
+    if (!s.favorite) continue;
+    const p = primaryOf(s);
+    if (favSeen.has(p.id)) continue;
+    favSeen.add(p.id);
+    favs.push(s);
+  }
   $('#homeFavsWrap').style.display = favs.length ? '' : 'none';
   const favList = $('#homeFavs');
   favList.innerHTML = '';
-  for (const s of favs.slice(0, 8)) favList.appendChild(songRow(s));
+  for (const s of favs.slice(0, 8)) favList.appendChild(songRow(s, '', true));
 
   // adicionadas recentemente
   const list = $('#homeSongs');
   list.innerHTML = '';
   const recent = [...LIB].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
   for (const s of recent) list.appendChild(songRow(s));
+  scheduleLyricIndex(); // adianta o índice de letra antes da 1ª busca
 }
-function songRow(s, snip) {
+/* item de lista que não é <button>: vira alvo de teclado (Enter/Espaço) sem mudar o visual */
+function activate(el, fn) {
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  el.addEventListener('click', fn);
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target !== el) return; // Enter num botão de dentro é do botão
+    e.preventDefault();
+    fn(e);
+  });
+}
+/* abre exatamente esta versão (favorita), sem cair na versão preferida do seletor */
+function openSongExact(id) {
+  openViewer(id);
+  if (vSongId !== id) { vSongId = id; renderViewer(); }
+}
+function songRow(s, snip, exact) {
   const el = document.createElement('div');
   el.className = 'songitem';
   el.innerHTML = `${avatarHtml(s.artistSlug)}
@@ -1940,7 +2172,7 @@ function songRow(s, snip) {
     ${s.favorite ? `<span class="fav">${svg(I.heartFill, 16)}</span>` : ''}
     <span class="pill">${escHtml(finalKey(s))}</span>
     <span class="rowic">${svg(I.chevron, 17)}</span>`;
-  el.addEventListener('click', () => openViewer(s.id));
+  activate(el, () => exact ? openSongExact(s.id) : openViewer(s.id));
   return el;
 }
 
@@ -1991,40 +2223,69 @@ function renderRecents() {
  * música e só recalcula o que mudou, pra não pesar a cada tecla digitada. A letra só
  * é normalizada se título/artista não bastarem pra bater a busca (ou nunca, se a
  * música é achada só pelo título — a maioria dos casos). */
-const songIndexCache = new Map(); // song.id -> { title, artist, content, nt, na, lyrics }
+/* guardar o `content` no índice triplicava a memória: compara por updatedAt e só
+ * mantém a letra normalizada (o trecho mostrado é recalculado na hora, é raro) */
+const songIndexCache = new Map(); // song.id -> { stamp, title, artist, nt, na, lyr }
+const ixStamp = s => s.updatedAt || s.edited || s.createdAt || 0;
 function songIndex(s) {
   let ix = songIndexCache.get(s.id);
-  if (!ix || ix.title !== s.title || ix.artist !== s.artist || ix.content !== s.content) {
-    ix = { title: s.title, artist: s.artist, content: s.content, nt: norm(s.title), na: norm(s.artist), lyrics: null };
+  if (!ix || ix.stamp !== ixStamp(s) || ix.title !== s.title || ix.artist !== s.artist) {
+    ix = { stamp: ixStamp(s), title: s.title, artist: s.artist, nt: norm(s.title), na: norm(s.artist), lyr: null };
     songIndexCache.set(s.id, ix);
   }
   return ix;
 }
-function lyricsOf(s, ix) {
-  if (!ix.lyrics) {
-    const plain = s.content.replace(TOKEN_RE, '');
-    ix.lyrics = { plain, norm: norm(plain) };
+const plainLyrics = s => String(s.content || '').replace(TOKEN_RE, '');
+/* normalizar a letra da biblioteca inteira de uma vez travava a 1ª busca por segundos:
+ * o índice é construído aos poucos, na ociosidade, e a busca usa o que já existe. */
+let lyricPos = 0, lyricIdle = null, lyricPending = false;
+const onIdle = window.requestIdleCallback
+  ? fn => requestIdleCallback(fn, { timeout: 1500 })
+  : fn => setTimeout(fn, 60);
+function scheduleLyricIndex() {
+  if (lyricIdle || lyricPos >= SONGS.length) return;
+  lyricIdle = onIdle(buildLyricIndex);
+}
+function buildLyricIndex() {
+  lyricIdle = null;
+  const t0 = performance.now();
+  while (lyricPos < SONGS.length && performance.now() - t0 < 12) { // lotes curtos: não segura o dedo na tela
+    const s = SONGS[lyricPos++];
+    const ix = songIndex(s);
+    if (ix.lyr === null) ix.lyr = norm(plainLyrics(s));
   }
-  return ix.lyrics;
+  if (lyricPos < SONGS.length) return scheduleLyricIndex();
+  if (songIndexCache.size > SONGS.length) // joga fora o índice de cifras que não existem mais
+    for (const id of songIndexCache.keys()) if (!SONG_BY_ID.has(id)) songIndexCache.delete(id);
+  if (lyricPending) { lyricPending = false; if (currentView === 'search') renderSearch(); }
 }
 function searchSongs(q, filter) {
   if (!q) return LIB.map(s => ({ s }));
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const out = [];
+  const t0 = performance.now();
   for (const s of SONGS) {
     const ix = songIndex(s);
-    let score = 0, snip = '', lyr = null;
-    const getLyr = () => lyr || (lyr = lyricsOf(s, ix));
+    let score = 0, snip = '', usouLetra = false;
+    const getLyr = () => {
+      if (ix.lyr === null) {
+        // o que ainda não foi indexado fica pra próxima: travar a tela é pior que um resultado atrasado
+        if (performance.now() - t0 > 40) { lyricPending = true; scheduleLyricIndex(); return ''; }
+        ix.lyr = norm(plainLyrics(s));
+      }
+      usouLetra = true;
+      return ix.lyr;
+    };
     const okAll = terms.every(t => {
       if ((filter === 'all' || filter === 'title') && ix.nt.includes(t)) { score += 3; return true; }
       if ((filter === 'all' || filter === 'artist') && ix.na.includes(t)) { score += 2; return true; }
-      if ((filter === 'all' || filter === 'lyrics') && getLyr().norm.includes(t)) { score += 1; return true; }
+      if ((filter === 'all' || filter === 'lyrics') && getLyr().includes(t)) { score += 1; return true; }
       return false;
     });
     if (!okAll) continue;
-    if (score <= terms.length && lyr) { // match veio da letra → mostrar trecho
-      const i = lyr.norm.indexOf(terms[0]);
-      if (i >= 0) snip = lyr.plain.substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
+    if (score <= terms.length && usouLetra) { // match veio da letra → mostrar trecho
+      const i = ix.lyr.indexOf(terms[0]);
+      if (i >= 0) snip = plainLyrics(s).substring(Math.max(0, i - 20), i + 60).replace(/\n/g, ' ').trim();
     }
     out.push({ s, score, snip });
   }
@@ -2147,17 +2408,27 @@ function stripTabs(content) {
 /* recorta a faixa de colunas visíveis [from, to) preservando tokens inteiros;
  * acorde que atravessa o corte vai para o segmento seguinte */
 function sliceTokens(s, from, to) {
-  let out = '', col = 0, i = 0;
+  let out = '', col = 0, i = 0, debt = 0; // debt: colunas que o acorde da borda ocupa além de `from`
   while (i < s.length) {
     if (s[i] === CH_OPEN) {
       const j = s.indexOf(CH_CLOSE, i);
+      if (j === -1) { // token sem fechamento (conteúdo corrompido): emite o resto e sai
+        if (col >= from) out += s.slice(i);
+        break;
+      }
       const chord = s.slice(i + 1, j);
       const w = chord.length;
-      if ((col >= from && col + w <= to) || (col < from && col + w > from))
+      if (col >= from && col + w <= to) out += CH_OPEN + chord + CH_CLOSE;
+      else if (col < from && col + w > from) { // atravessa `from`: entra inteiro no início do segmento
         out += CH_OPEN + chord + CH_CLOSE;
+        debt = col + w - from; // o excedente é descontado dos espaços seguintes pra não deslocar o resto
+      }
       col += w; i = j + 1;
     } else {
-      if (col >= from && col < to) out += s[i];
+      if (col >= from && col < to) {
+        if (debt > 0 && s[i] === ' ' && s[i + 1] === ' ') debt--; // come o espaço, mas deixa ao menos um
+        else out += s[i];
+      }
       col++; i++;
     }
   }
@@ -2175,7 +2446,8 @@ function wrapPair(chordLine, lyricLine, cols, out) {
     const cut = findCut(l, cols);
     let rs = cut;
     while (l[rs] === ' ') rs++;
-    out.push(sliceTokens(c, 0, cut), l.slice(0, cut));
+    // o 1º segmento vai até rs: acorde sobre os espaços consumidos pelo corte não pode sumir
+    out.push(sliceTokens(c, 0, rs), l.slice(0, cut));
     c = sliceTokens(c, rs, Infinity);
     l = l.slice(rs);
   }
@@ -2231,11 +2503,13 @@ function viewerCols() {
   const cw = (probe.getBoundingClientRect().width / 40) || (fontSize * 0.6);
   probe.remove();
   let width = box.clientWidth - 34; // padding horizontal do #vpre
-  if ($('#viewer').classList.contains('stage')
-      && matchMedia('(orientation: landscape) and (min-width: 900px)').matches) {
-    width = (width - 40) / 2; // modo palco em 2 colunas
-  }
+  if (stageTwoCols()) width = (width - 40) / 2; // modo palco em 2 colunas
   return Math.max(16, Math.floor(width / cw));
+}
+/* modo palco em paisagem larga: o CSS divide o #vpre em 2 colunas */
+function stageTwoCols() {
+  return $('#viewer').classList.contains('stage')
+    && matchMedia('(orientation: landscape) and (min-width: 900px)').matches;
 }
 let vResizeT = null;
 window.addEventListener('resize', () => {
@@ -2245,7 +2519,8 @@ window.addEventListener('resize', () => {
 });
 
 function keyWithOffset(s, n) {
-  return n ? transposeChord(s.originalKey, n, preferFlatFor(s.originalKey, n)) : s.originalKey;
+  const k = s.originalKey || ''; // registro vindo de backup/sync pode não ter tom
+  return n ? transposeChord(k, n, preferFlatFor(k, n)) : k;
 }
 function currentKey(s) { return keyWithOffset(s, s.transpose || 0); }
 /* casa do capotraste: aceita o texto importado ("Capotraste na 2ª casa") ou número */
@@ -2264,16 +2539,20 @@ function plOffset(pl, s) {
   return pl?.keys && s.id in pl.keys ? pl.keys[s.id] : (s.transpose || 0);
 }
 function openViewer(songId, context) {
+  const s = SONGS.find(x => x.id === songId);
+  if (!s) return toast('Cifra não encontrada neste aparelho'); // playlist sincronizada pode apontar pra cifra que não veio
   if (!context) { // aberto pelas listas: cai na versão preferida (playlists apontam pra versão exata)
-    const s = SONGS.find(x => x.id === songId);
-    const pref = s && VERPREF[groupKey(s)];
+    const pref = VERPREF[groupKey(s)];
     if (pref && pref !== songId && versionsOf(s).some(v => v.id === pref)) songId = pref;
   }
   vSongId = songId; vContext = context || null;
   stopAutoScroll();
   $('#viewer').classList.add('open'); // antes de renderizar: a largura precisa existir p/ calcular a quebra
   renderViewer();
-  $('#vscroll').scrollTop = 0;
+  const box = $('#vscroll');
+  box.scrollTop = 0;
+  box.tabIndex = -1; // recebe o foco pra o teclado (setas, espaço, Esc) agir na cifra
+  try { box.focus({ preventScroll: true }); } catch {}
   acquireWakeLock();
 }
 function closeViewer() {
@@ -2287,9 +2566,19 @@ function closeViewer() {
 }
 
 /* mantém a tela acesa enquanto uma cifra está aberta (iPad no pedestal) */
-let wakeLock = null;
+let wakeLock = null, wakeLockReq = null;
 async function acquireWakeLock() {
-  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+  if (wakeLock && !wakeLock.released) return; // já está ativo: pedir outro vazava um por música da playlist
+  if (wakeLockReq) return; // pedido em andamento
+  wakeLockReq = (async () => {
+    try {
+      const wl = await navigator.wakeLock?.request('screen');
+      if (!vSongId) { try { wl?.release(); } catch {} return; } // viewer fechou enquanto esperava
+      wakeLock = wl;
+    } catch {}
+  })();
+  await wakeLockReq;
+  wakeLockReq = null;
 }
 function releaseWakeLock() {
   try { wakeLock?.release(); } catch {}
@@ -2297,6 +2586,7 @@ function releaseWakeLock() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && vSongId) acquireWakeLock();
+  else if (document.visibilityState === 'hidden') stopAutoScroll(); // ao voltar, não dá um salto
 });
 function vSong() { return SONGS.find(s => s.id === vSongId); }
 
@@ -2307,7 +2597,7 @@ function renderViewer() {
   const vbox = $('#vVersions');
   vbox.style.display = vers.length > 1 ? '' : 'none';
   vbox.innerHTML = vers.length > 1
-    ? vers.map(v => `<button class="chip${v.id === s.id ? ' active' : ''}" data-ver="${v.id}">${escHtml(v.versionName || 'Principal')}</button>`).join('')
+    ? vers.map(v => `<button class="chip${v.id === s.id ? ' active' : ''}" data-ver="${escHtml(v.id)}" aria-pressed="${v.id === s.id}">${escHtml(v.versionName || 'Principal')}</button>`).join('')
     : '';
   $('#vTitle').textContent = vers.length > 1 ? baseTitle(s) : s.title;
   $('#vArtist').textContent = s.artist;
@@ -2319,6 +2609,7 @@ function renderViewer() {
   const capo = capoFret(s);
   const keyLabel = soundingKey(shapeKey, capo) + (n ? ` (${n > 0 ? '+' : ''}${n})` : '') + (plKeyed ? ' · na playlist' : '');
   $('#vKey').textContent = keyLabel;
+  const kh = $('#vKeyHead'); if (kh) kh.textContent = keyLabel; // tom no cabeçalho (elemento opcional)
   $('#vStageLabel').textContent = $('#viewer').classList.contains('stage') ? 'Sair do modo palco' : 'Entrar no modo palco';
   $('#vCapo').textContent = capo ? `· com capotraste os acordes ficam em ${shapeKey}` : '';
   $('#vCapoToggle').classList.toggle('faved', capo > 0);
@@ -2343,10 +2634,11 @@ function renderViewer() {
   noteEl.textContent = note;
   noteEl.style.display = note ? 'inline-block' : 'none';
   let content = transposeContent(s.content, n, s.originalKey);
-  if (s.hideTabs) content = stripTabs(content);
+  // palco em 2 colunas: tablatura larga invadiria a outra coluna — some só no visual
+  if (s.hideTabs || stageTwoCols()) content = stripTabs(content);
   $('#vpre').style.fontSize = fontSize + 'px';
   const wrapped = wrapContent(content, viewerCols());
-  $('#vpre').innerHTML = escHtml(wrapped).replace(TOKEN_RE, '<b class="ch">$1</b>');
+  $('#vpre').innerHTML = escHtml(wrapped).replace(TOKEN_RE, '<b class="ch" tabindex="0" role="button">$1</b>');
 
   const nav = $('#vnav');
   if (vContext) {
@@ -2373,7 +2665,7 @@ async function setTranspose(delta, reset) {
     await plPut(pl);
   } else {
     s.transpose = reset ? 0 : Math.max(-11, Math.min(11, (s.transpose || 0) + delta));
-    s.updatedAt = Date.now();
+    s.updatedAt = now();
     renderViewer();
     await dbPut('songs', s);
   }
@@ -2384,9 +2676,15 @@ $('#vVersions').addEventListener('click', async e => {
   const s = vSong(); if (!s || c.dataset.ver === s.id) return;
   vSongId = c.dataset.ver;
   VERPREF[groupKey(s)] = vSongId; // lembra a versão escolhida pra esta música
-  await setSetting('versionPref', VERPREF);
-  renderViewer();
+  // dentro de playlist o tom e a nota são por id da versão: a nova herda os da antiga
+  const pl = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
+  let plChanged = false;
+  if (pl?.keys && s.id in pl.keys && !(vSongId in pl.keys)) { pl.keys[vSongId] = pl.keys[s.id]; plChanged = true; }
+  if (pl?.notes?.[s.id] && !pl.notes[vSongId]) { pl.notes[vSongId] = pl.notes[s.id]; plChanged = true; }
+  renderViewer(); // antes de gravar: resposta imediata
   $('#vscroll').scrollTop = 0;
+  if (plChanged) await plPut(pl);
+  await setSetting('versionPref', VERPREF);
 });
 $('#vTransUp').addEventListener('click', () => setTranspose(1));
 $('#vTransDown').addEventListener('click', () => setTranspose(-1));
@@ -2395,9 +2693,9 @@ $('#vTransReset').addEventListener('click', () => setTranspose(0, true));
 async function saveCapo(c) {
   const s = vSong(); if (!s) return;
   s.capo = c ? `Capotraste na ${c}ª casa` : '';
-  s.updatedAt = Date.now();
+  s.updatedAt = now();
+  renderViewer(); // otimista: mostra já, grava depois
   await dbPut('songs', s);
-  renderViewer();
 }
 $('#vCapoToggle').addEventListener('click', () => {
   const s = vSong(); if (!s) return;
@@ -2413,14 +2711,14 @@ $('#vFontUp').addEventListener('click', () => setFont(1));
 $('#vFontDown').addEventListener('click', () => setFont(-1));
 async function setFont(d) {
   fontSize = Math.max(9, Math.min(32, fontSize + d));
-  await setSetting('fontSize', fontSize);
   renderViewer();
+  await setSetting('fontSize', fontSize);
 }
 /* favorita */
 $('#vFav').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   s.favorite = !s.favorite;
-  s.updatedAt = Date.now();
+  s.updatedAt = now();
   renderViewer();
   await dbPut('songs', s);
   toast(s.favorite ? 'Adicionada às favoritas' : 'Removida das favoritas', 1600);
@@ -2430,10 +2728,10 @@ $('#vFav').addEventListener('click', async () => {
 $('#vTabs').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   s.hideTabs = !s.hideTabs;
-  s.updatedAt = Date.now();
-  await dbPut('songs', s);
-  renderViewer();
+  s.updatedAt = now();
+  renderViewer(); // otimista: mostra já, grava depois
   toast(s.hideTabs ? 'Tablaturas ocultas' : 'Tablaturas visíveis', 1600);
+  await dbPut('songs', s);
 });
 
 /* modo palco: tela cheia de cifra, 2 colunas no iPad em paisagem */
@@ -2447,32 +2745,57 @@ $('#vStage').addEventListener('click', () => {
 $('#vToolsBtn').addEventListener('click', () => $('#modalTools').classList.add('open'));
 $('#vToolsClose').addEventListener('click', () => $('#modalTools').classList.remove('open'));
 
+/* toast com um botão de ação (toast() é só texto) */
+function toastAction(msg, label, fn, ms = 7000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn sm'; b.textContent = label;
+  b.style.cssText = 'pointer-events:auto;margin-left:10px;vertical-align:middle'; // #toast não recebe cliques
+  b.addEventListener('click', () => { clearTimeout(t._h); t.classList.remove('show'); fn(); });
+  t.appendChild(b);
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), ms);
+}
+
 /* rolagem automática (velocidade em % — 100% ≈ 30 px/s) */
-let scrollSpeed = 100, scrollRAF = null, scrollLastTs = 0, scrollAcc = 0;
+let scrollSpeed = 100, scrollRAF = null, scrollLastTs = 0, scrollAcc = 0, scrollHoldUntil = 0;
 function autoScrollTick(ts) {
   if (!scrollLastTs) scrollLastTs = ts;
-  const dt = (ts - scrollLastTs) / 1000;
+  // dt limitado: ao voltar de outra app o rAF entrega um dt enorme e a cifra saltava
+  const dt = Math.min((ts - scrollLastTs) / 1000, 0.1);
   scrollLastTs = ts;
   const box = $('#vscroll');
-  scrollAcc += 30 * (scrollSpeed / 100) * dt;
+  if (ts >= scrollHoldUntil) scrollAcc += 30 * (scrollSpeed / 100) * dt; // atraso inicial pra achar a 1ª linha
   if (scrollAcc >= 1) {
     const px = Math.floor(scrollAcc);
     scrollAcc -= px;
     box.scrollTop += px;
-    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 2) return stopAutoScroll();
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 2) {
+      stopAutoScroll();
+      // fim da cifra dentro de playlist: oferece a próxima sem tirar a mão do violão por muito tempo
+      const pl = vContext && PLAYLISTS.find(p => p.id === vContext.playlistId);
+      const ids = vContext && (vContext.ids || pl?.songIds || []);
+      if (pl && vContext.index < ids.length - 1) toastAction('Fim da cifra', 'Próxima ▶', () => stepPlaylist(1));
+      return;
+    }
   }
   scrollRAF = requestAnimationFrame(autoScrollTick);
 }
 function startAutoScroll() {
   if (scrollRAF) return;
   scrollLastTs = 0; scrollAcc = 0;
+  scrollHoldUntil = performance.now() + 2000;
   $('#vScrollPlay').classList.add('on');
+  $('#vScrollPlay').setAttribute('aria-pressed', 'true');
   scrollRAF = requestAnimationFrame(autoScrollTick);
 }
 function stopAutoScroll() {
   if (scrollRAF) cancelAnimationFrame(scrollRAF);
   scrollRAF = null;
   $('#vScrollPlay').classList.remove('on');
+  $('#vScrollPlay').setAttribute('aria-pressed', 'false');
 }
 $('#vScrollPlay').addEventListener('click', () => scrollRAF ? stopAutoScroll() : startAutoScroll());
 async function setScrollSpeed(d) {
@@ -2527,15 +2850,22 @@ $('#eSave').addEventListener('click', async () => {
   const s = vSong(); if (!s) return;
   s.title = $('#eTitle').value.trim() || s.title;
   s.artist = $('#eArtist').value.trim() || s.artist;
-  s.originalKey = $('#eKey').value.trim() || s.originalKey;
+  const rawKey = $('#eKey').value.trim();
+  let keyWarn = '';
+  if (rawKey) { // só tom em cifra (C, F#m, Bb); inicial minúscula é corrigida, o resto é recusado
+    const k = rawKey[0].toUpperCase() + rawKey.slice(1);
+    if (/^[A-G](#|b)?m?$/.test(k)) s.originalKey = k;
+    else keyWarn = ` — tom "${rawKey}" inválido (ex.: C, F#m, Bb), mantido ${s.originalKey || 'o anterior'}`;
+  }
   s.content = $('#eContent').value
     .replace(/<([A-G][^>\n]{0,10})>/g, (m, c) => isChordSymbol(c) ? CH_OPEN + c + CH_CLOSE : m);
-  s.updatedAt = Date.now();
+  s.edited = now(); // reimportar/atualizar do CifraClub passa a preservar o que foi editado
+  s.updatedAt = now();
   await dbPut('songs', s);
   await reloadCache();
   $('#modalEdit').classList.remove('open');
   renderViewer();
-  toast('Salvo');
+  toast('Salvo' + keyWarn, keyWarn ? 4000 : 2600);
 });
 
 /* ------------------------- diagramas de acordes ------------------------- */
@@ -2577,8 +2907,8 @@ function chordShape(symbol) {
   let usedBarre = false;
   if (!frets) {
     const idx = NOTE_IDX[root];
-    const fE = ((idx - 4) % 12 + 12) % 12 || 12; // casa da raiz na corda 6
-    const fA = ((idx - 9) % 12 + 12) % 12 || 12; // casa da raiz na corda 5
+    const fE = ((idx - 4) % 12 + 12) % 12; // casa da raiz na corda 6 (0 = forma aberta, não a 12ª)
+    const fA = ((idx - 9) % 12 + 12) % 12; // casa da raiz na corda 5
     const cands = [];
     if (BARRE_E[suf]) cands.push({ f: fE, off: BARRE_E[suf] });
     if (BARRE_A[suf]) cands.push({ f: fA, off: BARRE_A[suf] });
@@ -2586,7 +2916,7 @@ function chordShape(symbol) {
     cands.sort((a, b) => a.f - b.f);
     const c = cands[0];
     frets = c.off.map(o => o < 0 ? -1 : c.f + o);
-    usedBarre = true;
+    usedBarre = c.f > 0;
   }
   return { frets, approx, bass, usedBarre };
 }
@@ -2641,7 +2971,43 @@ $('#vpre').addEventListener('click', e => {
   const b = e.target.closest('b.ch');
   if (b) openChordSheet(b.textContent.trim());
 });
+// acorde focado (Tab) abre o diagrama com Enter/Espaço
+$('#vpre').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const b = e.target.closest('b.ch'); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  openChordSheet(b.textContent.trim());
+});
 $('#chordClose').addEventListener('click', () => $('#modalChord').classList.remove('open'));
+
+/* teclado no visualizador (iPad com teclado / desktop): só com a cifra aberta e sem campo focado */
+document.addEventListener('keydown', e => {
+  if (!$('#viewer').classList.contains('open')) return;
+  const el = document.activeElement;
+  if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+  const modals = $$('.modal-bg.open');
+  if (e.key === 'Escape') { // fecha a folha aberta; sem folha, fecha a cifra
+    e.preventDefault();
+    if (modals.length) modals[modals.length - 1].classList.remove('open');
+    else $('#vBack').click(); // pelo botão: o "atualiza ao sair da cifra" do SW também escuta ali
+    return;
+  }
+  if (modals.length || e.altKey || e.ctrlKey || e.metaKey) return;
+  // Espaço/Enter num botão ou acorde focado é o clique dele, não atalho
+  if ((e.key === ' ' || e.key === 'Enter') && el && el.closest('button, a, b.ch')) return;
+  const box = $('#vscroll');
+  switch (e.key) {
+    case ' ': scrollRAF ? stopAutoScroll() : startAutoScroll(); break;
+    case 'PageDown': case 'ArrowDown': stopAutoScroll(); box.scrollBy({ top: box.clientHeight * 0.85, behavior: 'smooth' }); break;
+    case 'PageUp': case 'ArrowUp': stopAutoScroll(); box.scrollBy({ top: -box.clientHeight * 0.85, behavior: 'smooth' }); break;
+    case 'ArrowLeft': if (!vContext) return; stepPlaylist(-1); break;
+    case 'ArrowRight': if (!vContext) return; stepPlaylist(1); break;
+    case '+': case '=': setTranspose(1); break;
+    case '-': case '_': setTranspose(-1); break;
+    default: return;
+  }
+  e.preventDefault();
+});
 
 /* ------------------------- playlists ------------------------- */
 $('#plCreateBtn').addEventListener('click', () => {
@@ -2651,19 +3017,36 @@ $('#plCreateBtn').addEventListener('click', () => {
 });
 $('#plNewClose').addEventListener('click', () => $('#modalNewPl').classList.remove('open'));
 $('#plName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#plCreate').click(); });
+let plCreating = false; // dois toques rápidos criavam duas playlists com o mesmo nome
 $('#plCreate').addEventListener('click', async () => {
   const name = $('#plName').value.trim();
   if (!name) return toast('Dê um nome à playlist');
-  await plPut({ id: uid(), name, songIds: [], createdAt: Date.now() });
-  $('#modalNewPl').classList.remove('open');
-  await reloadPlaylists();
-  renderPlaylists();
+  if (plCreating) return;
+  plCreating = true; $('#plCreate').disabled = true;
+  try {
+    await plPut({ id: uid(), name, songIds: [], createdAt: Date.now() });
+    $('#modalNewPl').classList.remove('open');
+    await reloadPlaylists();
+    renderPlaylists();
+  } finally { plCreating = false; $('#plCreate').disabled = false; }
 });
+
+/* Grava uma playlist resolvendo o objeto NA HORA: handlers que guardavam o `pl` numa
+ * closure gravavam por cima do que a sincronização acabara de mesclar. fn devolve
+ * false pra cancelar (ex.: música que já saiu). */
+async function mutatePlaylist(id, fn) {
+  const pl = PLAYLISTS.find(p => p.id === id);
+  if (!pl || fn(pl) === false) return false;
+  await plPut(pl);
+  await reloadPlaylists();
+  rerenderLists();
+  return true;
+}
 
 /* capa da playlist = primeira foto de artista disponível entre as músicas */
 function plCoverSrc(pl) {
   for (const sid of pl.songIds) {
-    const s = SONGS.find(x => x.id === sid);
+    const s = SONG_BY_ID.get(sid);
     const src = s && artistImgSrc(s.artistSlug);
     if (src) return src;
   }
@@ -2690,7 +3073,7 @@ function renderPlaylists() {
         <span class="label-caps">Atualizada ${timeAgo(pl.updatedAt || pl.createdAt) || 'agora'}</span>
         <span class="rowic" style="color:var(--muted)">${svg(I.chevron, 17)}</span>
       </div>`;
-    card.addEventListener('click', () => openPlaylistScreen(pl.id));
+    activate(card, () => openPlaylistScreen(pl.id));
     wrap.appendChild(card);
   }
   // card pontilhado: nova playlist
@@ -2698,7 +3081,7 @@ function renderPlaylists() {
   add.className = 'plcard newpl';
   add.innerHTML = `<div><div class="plus">${svg('<path d="M5 12h14"/><path d="M12 5v14"/>', 21)}</div>
     <b>Nova playlist</b><small>Comece uma nova coleção de cifras</small></div>`;
-  add.addEventListener('click', () => $('#plCreateBtn').click());
+  activate(add, () => $('#plCreateBtn').click());
   wrap.appendChild(add);
 }
 
@@ -2720,38 +3103,45 @@ function closePlaylistScreen() {
   plDetailId = null;
   renderPlaylists();
 }
+/* sempre só as músicas que existem neste aparelho: com id órfão (playlist sincronizada
+ * antes das cifras) "Tocar" e "Próxima" fechavam o visualizador do nada */
 function plsSortedIds(pl) {
-  if (plsSort === 'manual') return [...pl.songIds];
+  const songs = pl.songIds.map(id => SONG_BY_ID.get(id)).filter(Boolean);
+  if (plsSort === 'manual') return songs.map(s => s.id);
   const by = plsSort === 'title'
     ? (a, b) => norm(a.title).localeCompare(norm(b.title))
     : (a, b) => norm(a.artist).localeCompare(norm(b.artist)) || norm(a.title).localeCompare(norm(b.title));
-  return pl.songIds
-    .map(id => SONGS.find(s => s.id === id))
-    .filter(Boolean)
-    .sort(by)
-    .map(s => s.id);
+  return songs.sort(by).map(s => s.id);
 }
-function openFromPls(pl, ids, i) {
-  openViewer(ids[i], { playlistId: pl.id, ids, index: i });
+function openFromPls(plId, ids, i) {
+  openViewer(ids[i], { playlistId: plId, ids, index: i });
 }
 function renderPlScreen() {
   const pl = PLAYLISTS.find(p => p.id === plDetailId);
   if (!pl) return closePlaylistScreen();
+  const ids = plsSortedIds(pl);
+  const faltando = pl.songIds.length - ids.length;
   $('#plDetailName').textContent = pl.name;
-  $('#plDetailCount').textContent = `${pl.songIds.length} música${pl.songIds.length === 1 ? '' : 's'}`;
-  $('#plDetailPlay').disabled = !pl.songIds.length;
+  $('#plDetailCount').textContent = `${ids.length} música${ids.length === 1 ? '' : 's'}`;
+  $('#plDetailPlay').disabled = !ids.length;
   $$('#plsSortChips .chip').forEach(c => c.classList.toggle('active', c.dataset.sort === plsSort));
   $('#plsViewList').classList.toggle('on', plsView === 'list');
   $('#plsViewCards').classList.toggle('on', plsView === 'cards');
-  const ids = plsSortedIds(pl);
   const box = $('#plDetailSongs');
   box.className = plsView === 'cards' ? 'plcards' : 'songlist';
-  box.innerHTML = ids.length ? '' : '<p class="muted">Nenhuma música ainda — abra uma cifra e adicione pela engrenagem → Playlist.</p>';
+  box.innerHTML = ids.length || faltando ? '' : '<p class="muted">Nenhuma música ainda — abra uma cifra e adicione pela engrenagem → Playlist.</p>';
   ids.forEach((sid, i) => {
-    const s = SONGS.find(x => x.id === sid);
+    const s = SONG_BY_ID.get(sid);
     if (!s) return;
     box.appendChild(plsView === 'cards' ? plsCard(pl, s, ids, i) : plsRow(pl, s, ids, i));
   });
+  if (faltando) {
+    const aviso = document.createElement('p');
+    aviso.className = 'muted';
+    aviso.style.padding = '10px 16px';
+    aviso.textContent = `${faltando} ${faltando === 1 ? 'música não disponível' : 'músicas não disponíveis'} neste aparelho`;
+    box.appendChild(aviso);
+  }
 }
 function plsKeyPill(pl, s) {
   const keyed = !!(pl.keys && s.id in pl.keys);
@@ -2769,12 +3159,13 @@ function plsCard(pl, s, ids, i) {
       ${plsKeyPill(pl, s)}
       ${s.favorite ? `<span class="fav">${svg(I.heartFill, 14)}</span>` : ''}
     </div>`;
-  el.addEventListener('click', () => openFromPls(pl, ids, i));
+  activate(el, () => openFromPls(pl.id, ids, i));
   return el;
 }
 function plsRow(pl, s, ids, i) {
   const note = pl.notes?.[s.id] || '';
   const manual = plsSort === 'manual';
+  const plId = pl.id; // os handlers resolvem a playlist pelo id, nunca por este objeto
   const item = document.createElement('div');
   item.className = 'songitem plitem';
   item.dataset.sid = s.id;
@@ -2788,24 +3179,24 @@ function plsRow(pl, s, ids, i) {
     ${plsKeyPill(pl, s)}
     <button class="iconbtn" data-note="1" style="width:36px;height:36px${note ? ';color:var(--accent)' : ''}" title="Nota (capo, tom, deixa…)" aria-label="Nota da música nesta playlist">${svg(I.pencil, 15)}</button>
     <button class="iconbtn" data-rm="1" style="color:var(--danger);width:36px;height:36px" aria-label="Remover da playlist">${svg(I.x, 16)}</button>`;
-  if (manual) plsAttachDrag(item, pl);
-  item.addEventListener('click', async e => {
+  if (manual) plsAttachDrag(item, plId);
+  activate(item, async e => {
     if (e.target.closest('[data-drag]')) return; // tocar/soltar a alça não abre a cifra
 
     const rm = e.target.closest('[data-rm]');
     const nt = e.target.closest('[data-note]');
-    if (rm) { removePlSong(pl, pl.songIds.indexOf(s.id)); e.stopPropagation(); return; }
+    if (rm) { e.stopPropagation(); removePlSong(plId, s.id, item); return; }
     if (nt) {
       e.stopPropagation();
       const v = prompt(`Nota para "${s.title}" nesta playlist (capo, tom, deixa…):`, note);
       if (v === null) return;
-      pl.notes = pl.notes || {};
-      if (v.trim()) pl.notes[s.id] = v.trim(); else delete pl.notes[s.id];
-      await plPut(pl); await reloadPlaylists();
-      renderPlScreen();
+      await mutatePlaylist(plId, p => {
+        p.notes = p.notes || {};
+        if (v.trim()) p.notes[s.id] = v.trim(); else delete p.notes[s.id];
+      });
       return;
     }
-    openFromPls(pl, ids, i);
+    openFromPls(plId, ids, i);
   });
   return item;
 }
@@ -2822,32 +3213,31 @@ $('#plsMenuBtn').addEventListener('click', () => $('#modalPlMenu').classList.add
 $('#plMenuClose').addEventListener('click', () => $('#modalPlMenu').classList.remove('open'));
 $('#plDetailPlay').addEventListener('click', () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId);
-  if (!pl || !pl.songIds.length) return;
+  if (!pl) return;
   const ids = plsSortedIds(pl);
-  openFromPls(pl, ids, 0);
+  if (!ids.length) return;
+  openFromPls(pl.id, ids, 0);
 });
 $('#plDetailRen').addEventListener('click', async () => {
-  const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
+  const id = plDetailId;
+  const pl = PLAYLISTS.find(p => p.id === id); if (!pl) return;
   const name = prompt('Novo nome:', pl.name);
-  if (name?.trim()) {
-    pl.name = name.trim();
-    await plPut(pl); await reloadPlaylists();
-    $('#modalPlMenu').classList.remove('open');
-    renderPlScreen();
-  }
+  if (!name?.trim()) return;
+  await mutatePlaylist(id, p => { p.name = name.trim(); });
+  $('#modalPlMenu').classList.remove('open');
 });
 /* exporta a playlist com as próprias cifras — mesmo formato do backup,
  * então dá para importar pelo botão "Importar" da tela de playlists */
 $('#plDetailExport').addEventListener('click', () => {
   const pl = PLAYLISTS.find(p => p.id === plDetailId); if (!pl) return;
-  const songs = pl.songIds.map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+  const songs = pl.songIds.map(id => SONG_BY_ID.get(id)).filter(Boolean);
   const data = { app: 'cifras-app', version: 1, exportedAt: new Date().toISOString(), songs, playlists: [pl] };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `playlist-${pl.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}.json`;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000); // revogar na hora cancela o download em alguns navegadores
   $('#modalPlMenu').classList.remove('open');
   toast('Playlist exportada — envie o arquivo para quem quiser importar');
 });
@@ -2863,10 +3253,13 @@ $('#plDetailDel').addEventListener('click', async () => {
  * item real, translúcido, é reinserido ao vivo entre os irmãos marcando o destino.
  * Perto das bordas a lista rola sozinha. O click pós-arrasto cai na própria
  * alça, que o handler de click já ignora */
-function plsAttachDrag(item, pl) {
+let dragBusy = false; // um arrasto por vez: o 2º dedo no iPad movia o fantasma do primeiro
+function plsAttachDrag(item, plId) {
   const handle = item.querySelector('[data-drag]');
   if (!handle) return;
   handle.addEventListener('pointerdown', e => {
+    if (dragBusy) return;
+    dragBusy = true;
     e.preventDefault();
     // os eventos ficam no document: reinserir o item no DOM solta a captura do
     // ponteiro, e escutar na alça fazia o arrasto morrer depois da primeira troca
@@ -2886,6 +3279,7 @@ function plsAttachDrag(item, pl) {
       if (d) { scroller.scrollTop += Math.sign(d) * Math.min(18, Math.abs(d) / 2); place(lastY); }
     };
     const onMove = ev => {
+      if (ev.pointerId !== e.pointerId) return; // só o dedo que começou o arrasto
       lastY = ev.clientY;
       if (!moved) {
         if (Math.abs(ev.clientY - e.clientY) <= 6) return;
@@ -2912,46 +3306,52 @@ function plsAttachDrag(item, pl) {
       ghost?.remove();
       item.classList.remove('dragging');
       box.style.userSelect = '';
+      dragBusy = false;
       if (!moved) return;
       // aplica a nova ordem como permutação só das músicas visíveis: ids sem
       // linha (música ainda não sincronizada) ficam nas posições originais
       const domIds = [...box.children].map(el => el.dataset.sid).filter(Boolean);
       const visSet = new Set(domIds);
       let k = 0;
-      pl.songIds = pl.songIds.map(id => visSet.has(id) ? domIds[k++] : id);
-      await plPut(pl);
-      await reloadPlaylists();
-      renderPlScreen();
+      await mutatePlaylist(plId, p => { p.songIds = p.songIds.map(id => visSet.has(id) ? domIds[k++] : id); });
     };
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
   });
 }
-async function removePlSong(pl, i) {
-  const id = pl.songIds[i];
-  pl.songIds.splice(i, 1);
-  if (pl.keys) delete pl.keys[id];   // limpa o tom e a nota da música removida
-  if (pl.notes) delete pl.notes[id];
-  await plPut(pl);
-  await reloadPlaylists();
-  renderPlScreen();
+/* Remove a música da playlist. O 2º toque rápido no X achava índice -1 e o splice(-1,1)
+ * apagava a ÚLTIMA música: a linha some antes do await e o índice é conferido. */
+async function removePlSong(plId, songId, row) {
+  row?.remove();
+  await mutatePlaylist(plId, pl => {
+    const i = pl.songIds.indexOf(songId);
+    if (i < 0) return false; // já tinha saído
+    pl.songIds.splice(i, 1);
+    if (pl.keys) delete pl.keys[songId];   // limpa o tom e a nota da música removida
+    if (pl.notes) delete pl.notes[songId];
+  });
 }
 /* adicionar à playlist (do visualizador) */
 $('#vAddPl').addEventListener('click', () => {
   const wrap = $('#plPick');
   wrap.innerHTML = PLAYLISTS.length ? '' : '<p class="muted">Nenhuma playlist ainda.</p>';
   for (const pl of PLAYLISTS) {
+    const plId = pl.id;
     const has = pl.songIds.includes(vSongId);
     const b = document.createElement('button');
     b.className = 'btn sm ' + (has ? 'subtle' : 'ghost');
     b.style.margin = '3px';
     b.textContent = (has ? '✓ ' : '') + pl.name;
     b.addEventListener('click', async () => {
-      if (has) pl.songIds = pl.songIds.filter(id => id !== vSongId);
-      else pl.songIds.push(vSongId);
-      await plPut(pl);
-      await reloadPlaylists();
+      if (b.disabled) return;
+      b.disabled = true;
+      const sid = vSongId;
+      // decide pelo estado do momento do clique: pelo `has` do render, dois toques duplicavam
+      await mutatePlaylist(plId, p => {
+        if (p.songIds.includes(sid)) p.songIds = p.songIds.filter(id => id !== sid);
+        else p.songIds.push(sid);
+      });
       $('#vAddPl').click(); // re-render do modal
     });
     wrap.appendChild(b);
@@ -2962,12 +3362,15 @@ $('#vAddPl').addEventListener('click', () => {
 $('#plPickClose').addEventListener('click', () => $('#modalPl').classList.remove('open'));
 $('#plPickCreate').addEventListener('click', async () => {
   const name = $('#plPickNew').value.trim();
-  if (!name) return;
-  await plPut({ id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
-  $('#plPickNew').value = '';
-  await reloadPlaylists();
-  $('#modalPl').classList.remove('open');
-  toast(`Adicionada a "${name}"`);
+  if (!name || plCreating) return; // sem a trava, dois toques criavam duas playlists iguais
+  plCreating = true; $('#plPickCreate').disabled = true;
+  try {
+    await plPut({ id: uid(), name, songIds: [vSongId], createdAt: Date.now() });
+    $('#plPickNew').value = '';
+    await reloadPlaylists();
+    $('#modalPl').classList.remove('open');
+    toast(`Adicionada a "${name}"`);
+  } finally { plCreating = false; $('#plPickCreate').disabled = false; }
 });
 
 /* ------------------------- importação ------------------------- */
@@ -2987,8 +3390,8 @@ function releaseSlot() {
 const plural = (n, um, varios) => n === 1 ? um : varios;
 function enqueueArtistImport(name, songs) {
   const job = {
-    id: uid(), name, songs, done: 0, ok: 0, fail: 0, extra: 0, failed: [], failedSongs: [],
-    lastTitle: '', finished: false, cancelled: false, ctl: new AbortController(),
+    id: uid(), name, songs, done: 0, ok: 0, fail: 0, extra: 0, skipped: 0, failed: [], failedSongs: [],
+    lastTitle: '', finished: false, cancelled: false, ctl: new AbortController(), el: null,
   };
   importJobs.set(job.id, job);
   renderImportJobs();
@@ -2999,14 +3402,18 @@ async function runImportJob(job) {
   await Promise.all(job.songs.map(async s => {
     await acquireSlot();
     try {
-      if (job.ctl.signal.aborted) return;
+      // cancelado: o que não foi processado fica em failedSongs, pra "Tentar de novo" continuar de onde parou
+      if (job.ctl.signal.aborted) { job.skipped++; job.failedSongs.push(s); return; }
       job.lastTitle = s.title;
       renderImportJobs();
       const r = await importOneSong(s.artistSlug, s.songSlug, { signal: job.ctl.signal, version: s.versionSlug, versionName: s.versionName });
       job.ok++;
       job.extra += r.versions.length;
+      // versão que falhou conta como falha própria ("Música (Versão)") e pode ser refeita sozinha
+      for (const vf of r.versionFails) { job.fail++; job.failed.push(vf.title); job.failedSongs.push(vf); }
     } catch (e) {
-      if (!job.ctl.signal.aborted) { job.fail++; job.failed.push(s.title); job.failedSongs.push(s); }
+      if (job.ctl.signal.aborted) { job.skipped++; job.failedSongs.push(s); }
+      else { job.fail++; job.failed.push(s.title); job.failedSongs.push(s); }
     } finally {
       job.done++;
       releaseSlot();
@@ -3014,42 +3421,59 @@ async function runImportJob(job) {
     }
   }));
   job.finished = true;
+  await reloadCache(); // as cifras entraram no cache uma a uma; aqui a biblioteca é relida do banco de uma vez
   renderImportJobs();
   rerenderLists();
   toast(`${job.name}: ${job.ok} ${plural(job.ok, 'cifra importada', 'cifras importadas')}`
     + (job.extra ? ` (+${job.extra} ${plural(job.extra, 'versão', 'versões')})` : '')
-    + (job.fail ? `, ${job.fail} ${plural(job.fail, 'falhou', 'falharam')}` : ''));
-  // some sozinho se deu tudo certo; com falhas fica na tela até fechar (dá pra tentar de novo)
-  if (!job.fail) setTimeout(() => { importJobs.delete(job.id); renderImportJobs(); }, 6000);
+    + (job.fail ? `, ${job.fail} ${plural(job.fail, 'falhou', 'falharam')}` : '')
+    + (job.cancelled ? ` (cancelado, ${job.skipped} restantes)` : ''));
+  // some sozinho se deu tudo certo; com falhas ou cancelado fica na tela até fechar (dá pra tentar de novo)
+  if (!job.fail && !job.cancelled) setTimeout(() => { importJobs.delete(job.id); renderImportJobs(); }, 6000);
 }
 function jobStatusText(job) {
   const extra = job.extra ? ` (+${job.extra} ${plural(job.extra, 'versão', 'versões')})` : '';
-  if (job.cancelled) return `Cancelado — ${job.ok} importadas${extra} antes de parar.`;
-  if (job.finished) return `Concluído: ${job.ok} importadas${extra}${job.fail ? ` · falharam: ${job.failed.slice(0, 5).join(', ')}${job.failed.length > 5 ? '…' : ''}` : ''}`;
+  const fails = job.fail ? ` · falharam: ${job.failed.slice(0, 5).join(', ')}${job.failed.length > 5 ? '…' : ''}` : '';
+  if (job.cancelled) return `Cancelado — ${job.ok} importadas${extra}, ${job.skipped} restantes${fails}.`;
+  if (job.finished) return `Concluído: ${job.ok} importadas${extra}${fails}`;
   return job.lastTitle ? `Baixando: ${job.lastTitle}` : 'Na fila…';
 }
+/* O card de cada job é criado uma vez e só barra/contador/status mudam a cada progresso —
+ * reconstruir o HTML inteiro engolia o toque no botão (iPad) no meio da atualização. */
 function renderImportJobs() {
   const box = $('#importJobs');
   if (!box) return;
-  box.innerHTML = '';
+  for (const el of [...box.children]) if (!importJobs.has(el.dataset.job)) el.remove();
   for (const job of importJobs.values()) {
-    const total = job.songs.length;
-    const pct = Math.round(100 * job.done / total);
-    const el = document.createElement('div');
-    el.className = 'card impjob';
-    el.innerHTML = `
-      <div class="row" style="flex-wrap:nowrap">
-        ${job.finished ? (job.fail || job.cancelled ? '<span>⚠️</span>' : '<span>✅</span>') : '<span class="spinner"></span>'}
-        <b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(job.name)}</b>
-        <span class="muted" style="white-space:nowrap">${job.done}/${total}</span>
-        ${job.finished
-          ? `${job.failedSongs.length ? `<button class="btn sm" data-retry="${job.id}">Tentar de novo (${job.failedSongs.length})</button>` : ''}
-             <button class="btn sm ghost" data-close="${job.id}">Fechar</button>`
-          : `<button class="btn sm danger" data-job="${job.id}">Cancelar</button>`}
-      </div>
-      <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
-      <div class="muted">${escHtml(jobStatusText(job))}</div>`;
-    box.appendChild(el);
+    let el = job.el;
+    if (!el || !el.isConnected) {
+      el = job.el = document.createElement('div');
+      el.className = 'card impjob';
+      el.dataset.job = job.id;
+      el.innerHTML = `
+        <div class="row" style="flex-wrap:nowrap">
+          <span class="ic"></span>
+          <b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(job.name)}</b>
+          <span class="muted ct" style="white-space:nowrap"></span>
+          <span class="acts" style="display:flex;gap:6px"></span>
+        </div>
+        <div class="bar"><div class="fill" style="width:0%"></div></div>
+        <div class="muted st"></div>`;
+      box.appendChild(el);
+    }
+    const total = job.songs.length || 1;
+    el.querySelector('.fill').style.width = Math.round(100 * job.done / total) + '%';
+    el.querySelector('.ct').textContent = `${job.done}/${job.songs.length}`;
+    el.querySelector('.st').textContent = jobStatusText(job);
+    const state = job.finished ? (job.fail || job.cancelled ? 'warn' : 'ok') : job.cancelled ? 'stopping' : 'run';
+    if (el.dataset.state !== state) {
+      el.dataset.state = state;
+      el.querySelector('.ic').innerHTML = state === 'ok' ? '✅' : state === 'warn' ? '⚠️' : '<span class="spinner"></span>';
+      el.querySelector('.acts').innerHTML = job.finished
+        ? `${job.failedSongs.length ? `<button class="btn sm" data-retry="${job.id}">Tentar de novo (${job.failedSongs.length})</button>` : ''}
+           <button class="btn sm ghost" data-close="${job.id}">Fechar</button>`
+        : `<button class="btn sm danger" data-job="${job.id}"${job.cancelled ? ' disabled' : ''}>Cancelar</button>`;
+    }
   }
 }
 $('#importJobs').addEventListener('click', e => {
@@ -3073,8 +3497,19 @@ $('#importJobs').addEventListener('click', e => {
  * versões de violão/guitarra listadas na página (ex.: "Simplificada") — cada uma
  * vira uma cifra própria, com o nome da versão no título. */
 let IMPORT_VERSIONS = true;
-async function importOneSong(aSlug, sSlug, opts = {}) {
-  const html = await fetchCifraClub(songUrl(aSlug, sSlug, opts.version), t => t.includes('<pre'), opts);
+/* página de cifra do site novo tem <pre data-chord-content>; a antiga/impressão, vários <pre>
+ * numa página do cifraclub. Página de erro de proxy com um <pre> qualquer não passa. */
+const looksLikeCifra = t => t.includes('data-chord-content') || (/cifraclub/i.test(t) && /<pre[\s>]/i.test(t));
+const importInflight = new Map(); // "artista/musica/versao" → promessa: a mesma cifra pedida duas vezes ao mesmo tempo baixa uma vez
+function importOneSong(aSlug, sSlug, opts = {}) {
+  const k = `${aSlug}/${sSlug}/${opts.version || ''}`;
+  if (importInflight.has(k)) return importInflight.get(k);
+  const p = importOneSongRaw(aSlug, sSlug, opts).finally(() => importInflight.delete(k));
+  importInflight.set(k, p);
+  return p;
+}
+async function importOneSongRaw(aSlug, sSlug, opts = {}) {
+  const html = await fetchCifraClub(songUrl(aSlug, sSlug, opts.version), looksLikeCifra, opts);
   const parsed = parseCifraHTML(html, `https://www.cifraclub.com.br/${aSlug}/${sSlug}/`);
   if (opts.version) {
     parsed.versionSlug = opts.version;
@@ -3083,6 +3518,7 @@ async function importOneSong(aSlug, sSlug, opts = {}) {
   }
   const res = await saveSong(parsed);
   res.versions = [];
+  res.versionFails = []; // {title:'Música (Versão)', artistSlug, songSlug, versionSlug, versionName}
   if (!opts.version && IMPORT_VERSIONS) {
     const others = parsed.versions.filter(v => v.slug !== 'principal' && v.id !== parsed.activeVersion?.id);
     for (const v of others) {
@@ -3090,7 +3526,10 @@ async function importOneSong(aSlug, sSlug, opts = {}) {
       try {
         const r = await importOneSong(aSlug, sSlug, { signal: opts.signal, version: v.slug, versionName: v.name });
         res.versions.push(r.song);
-      } catch (e) { console.warn(`versão "${v.slug}" de ${sSlug} não importada:`, e.message); }
+      } catch (e) {
+        if (opts.signal?.aborted) break;
+        res.versionFails.push({ title: `${parsed.title} (${v.name})`, artistSlug: aSlug, songSlug: sSlug, versionSlug: v.slug, versionName: v.name, error: e.message });
+      }
     }
   }
   return res;
@@ -3102,13 +3541,16 @@ $('#importVersionsChk').addEventListener('change', async e => {
 
 $('#ccSearchBtn').addEventListener('click', doCcSearch);
 $('#ccSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doCcSearch(); });
+let ccSearchSeq = 0; // resposta de uma busca antiga que chega depois não sobrescreve a atual
 async function doCcSearch() {
   const q = $('#ccSearch').value.trim();
   if (!q) return;
   const box = $('#ccResults');
   box.innerHTML = '<div class="muted">Buscando…</div>';
+  const seq = ++ccSearchSeq;
   try {
     const results = await ccSearch(q);
+    if (seq !== ccSearchSeq) return;
     box.innerHTML = results.length ? '' : '<div class="muted">Nada encontrado.</div>';
     for (const r of results.slice(0, 25)) {
       const el = document.createElement('div');
@@ -3136,6 +3578,7 @@ async function doCcSearch() {
       box.appendChild(el);
     }
   } catch (err) {
+    if (seq !== ccSearchSeq) return;
     box.innerHTML = `<div class="muted">Erro na busca: ${escHtml(err.message)}</div>`;
   }
 }
@@ -3179,13 +3622,20 @@ $('#artistImportBtn').addEventListener('click', () => {
   $('#importJobs').scrollIntoView?.({ behavior: 'smooth' });
 });
 
+/* páginas do artista que têm a forma /artista/xxx mas não são cifra */
+const CC_RESERVED = new Set(['musicas', 'letra', 'letras', 'videoaula', 'videoaulas', 'cifras', 'albuns', 'discografia', 'fotos', 'noticias']);
 $('#urlImportBtn').addEventListener('click', async () => {
   let url = $('#urlInput').value.trim();
   if (!/cifraclub\.com\.br\/[^\/]+\/[^\/]+/.test(url)) return toast('URL inválida do CifraClub');
   url = url.split(/[?#]/)[0].replace(/\/(imprimir\.html)?$/, '');
   // …/artista/musica/ ou uma versão: …/artista/musica/simplificada.html
   const m = /cifraclub\.com\.br\/([^\/]+)\/([^\/]+)(?:\/([\w-]+)\.html)?/.exec(url);
-  $('#urlImportBtn').disabled = true;
+  if (/\.(html|php)$/i.test(m[2]) || CC_RESERVED.has(m[2].toLowerCase()))
+    return toast('Cole o endereço de uma cifra (cifraclub.com.br/artista/musica/), não o de uma lista de músicas', 4500);
+  const btn = $('#urlImportBtn');
+  const label = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Importando…';
   try {
     const res = await importOneSong(m[1], m[2], m[3] ? { version: m[3] } : {});
     const { song, updated } = res;
@@ -3195,7 +3645,8 @@ $('#urlImportBtn').addEventListener('click', async () => {
     $('#urlInput').value = '';
     renderRecentImports();
   } catch (err) { toast('Erro: ' + err.message, 4000); }
-  $('#urlImportBtn').disabled = false;
+  btn.disabled = false;
+  btn.innerHTML = label;
 });
 
 $('#pasteImportBtn').addEventListener('click', async () => {
@@ -3214,7 +3665,7 @@ $('#pasteImportBtn').addEventListener('click', async () => {
       }
       const content = tokenizePlainText(body.replace(/\s+$/, ''));
       const first = TOKEN_RE.exec(content); TOKEN_RE.lastIndex = 0;
-      const key = first ? first[1].replace(/^([A-G](?:#|b)?m?).*/, '$1') : 'C';
+      const key = (first && keyFromChord(first[1])) || 'C';
       parsed = { title, artist, originalKey: key, capo: '', content, artistSlug: '', songSlug: '' };
     }
     const { song, updated } = await saveSong(parsed);
@@ -3335,32 +3786,122 @@ $('#proxyTest').addEventListener('click', async () => {
 });
 
 $('#exportBtn').addEventListener('click', async () => {
-  const data = { app: 'cifras-app', version: 1, exportedAt: new Date().toISOString(), songs: SONGS, playlists: PLAYLISTS };
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  // Blob montado por partes: JSON.stringify da biblioteca inteira numa string só estourava memória
+  const parts = [`{"app":"cifras-app","version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"songs":[`];
+  SONGS.forEach((s, i) => parts.push((i ? ',' : '') + JSON.stringify(s)));
+  parts.push('],"playlists":', JSON.stringify(PLAYLISTS), '}');
+  const blob = new Blob(parts, { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `cifras-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000); // revogar na hora cancela o download em alguns navegadores
 });
-/* importa um arquivo do app (backup completo ou playlist exportada) — mescla por id */
-async function importBackupData(data) {
-  if (!Array.isArray(data.songs)) throw new Error('formato inválido');
-  let n = 0;
-  for (const s of data.songs) { if (s.id && s.content != null) { await dbPut('songs', s); n++; } }
-  for (const p of (data.playlists || [])) { if (p.id) await dbPut('playlists', p); }
+/* ---- validação de dados vindos de fora (backup, playlist compartilhada, servidor de sync) ----
+ * Um registro torto (id numérico, title null…) quebrava o app em TODO carregamento, em todos
+ * os aparelhos. Cada item é reconstruído só com os campos conhecidos e tipos certos; inválido → null. */
+const isStr = v => typeof v === 'string';
+const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v)) ? v : d;
+function sanitizeSong(raw) {
+  if (!raw || typeof raw !== 'object' || !isStr(raw.id) || !raw.id || raw.id.length > 200 || !isStr(raw.content)) return null;
+  const s = {
+    id: raw.id,
+    title: isStr(raw.title) && raw.title ? raw.title : 'Sem título',
+    artist: isStr(raw.artist) && raw.artist ? raw.artist : 'Desconhecido',
+    artistSlug: isStr(raw.artistSlug) ? raw.artistSlug : '',
+    songSlug: isStr(raw.songSlug) ? raw.songSlug : '',
+    originalKey: isStr(raw.originalKey) && raw.originalKey ? raw.originalKey : 'C',
+    capo: typeof raw.capo === 'number' ? Math.max(0, Math.min(11, Math.round(raw.capo))) : isStr(raw.capo) ? raw.capo.slice(0, 60) : '',
+    transpose: Math.max(-11, Math.min(11, Math.round(numOr(raw.transpose, 0)))),
+    favorite: !!raw.favorite,
+    content: raw.content,
+    createdAt: numOr(raw.createdAt, 0) || now(),
+    updatedAt: numOr(raw.updatedAt, 0),
+  };
+  if (isStr(raw.versionSlug) && raw.versionSlug) { s.versionSlug = raw.versionSlug; s.versionName = isStr(raw.versionName) && raw.versionName ? raw.versionName : raw.versionSlug; }
+  if (raw.hideTabs) s.hideTabs = true;
+  if (numOr(raw.edited, 0)) s.edited = raw.edited;
+  return s;
+}
+function sanitizePlaylist(raw) {
+  if (!raw || typeof raw !== 'object' || !isStr(raw.id) || !raw.id || raw.id.length > 200) return null;
+  const p = {
+    id: raw.id,
+    name: isStr(raw.name) && raw.name ? raw.name : 'Playlist',
+    songIds: Array.isArray(raw.songIds) ? raw.songIds.filter(id => isStr(id) && id) : [],
+    createdAt: numOr(raw.createdAt, 0) || now(),
+    updatedAt: numOr(raw.updatedAt, 0),
+  };
+  if (raw.keys && typeof raw.keys === 'object') {
+    p.keys = {};
+    for (const [id, n] of Object.entries(raw.keys)) if (typeof n === 'number' && Number.isFinite(n)) p.keys[id] = Math.max(-11, Math.min(11, Math.round(n)));
+  }
+  if (raw.notes && typeof raw.notes === 'object') {
+    p.notes = {};
+    for (const [id, t] of Object.entries(raw.notes)) if (isStr(t) && t) p.notes[id] = t.slice(0, 500);
+  }
+  return p;
+}
+/* importa um arquivo do app (backup completo ou playlist exportada) — mescla por id.
+ * Tudo que entra recebe updatedAt = agora e perde a lápide: restaurar é uma decisão do usuário
+ * e tem que vencer no sync (antes o outro aparelho apagava de novo o que foi restaurado). */
+async function importBackupData(data, onProgress) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.songs)) throw new Error('formato inválido — não é um arquivo do Cifras');
+  if (data.app !== 'cifras-app') toast('O arquivo não tem a assinatura do app — importando mesmo assim', 3500);
+  const ts = now();
+  let bad = 0;
+  // cifra do CifraClub que já existe aqui (mesmo slug + versão) com outro id — playlist
+  // compartilhada de outra biblioteca: não duplica, a playlist passa a apontar pro registro local
+  const bySlug = new Map();
+  for (const s of SONGS) if (s.artistSlug && s.songSlug) bySlug.set(`${s.artistSlug}/${s.songSlug}/${s.versionSlug || ''}`, s.id);
+  const idMap = new Map();
+  const songs = [];
+  for (const raw of data.songs) {
+    const s = sanitizeSong(raw);
+    if (!s) { bad++; continue; }
+    if (s.artistSlug && s.songSlug) {
+      const localId = bySlug.get(`${s.artistSlug}/${s.songSlug}/${s.versionSlug || ''}`);
+      if (localId && localId !== s.id) { idMap.set(s.id, localId); continue; }
+    }
+    s.updatedAt = ts;
+    delete TOMBS[s.id];
+    songs.push(s);
+  }
+  const pls = [];
+  for (const raw of (Array.isArray(data.playlists) ? data.playlists : [])) {
+    const p = sanitizePlaylist(raw);
+    if (!p) { bad++; continue; }
+    if (idMap.size) {
+      p.songIds = [...new Set(p.songIds.map(id => idMap.get(id) || id))];
+      for (const f of ['keys', 'notes']) if (p[f]) for (const [id, v] of Object.entries(p[f])) {
+        const to = idMap.get(id); if (to) { delete p[f][id]; p[f][to] = v; }
+      }
+    }
+    p.updatedAt = ts;
+    delete TOMBS[p.id];
+    pls.push(p);
+  }
+  await dbPutMany('songs', songs, onProgress);
+  await dbPutMany('playlists', pls);
+  await setSetting('tombstones', TOMBS);
   await reloadCache();
   rerenderLists();
-  return { songs: n, playlists: (data.playlists || []).length };
+  return { songs: songs.length, playlists: pls.length, bad, reused: idMap.size };
 }
+const backupResultText = r => `${r.songs} ${plural(r.songs, 'cifra', 'cifras')}`
+  + (r.playlists ? `, ${r.playlists} ${plural(r.playlists, 'playlist', 'playlists')}` : '')
+  + (r.reused ? ` (${r.reused} já ${plural(r.reused, 'existia', 'existiam')})` : '')
+  + (r.bad ? ` — ${r.bad} ${plural(r.bad, 'registro inválido descartado', 'registros inválidos descartados')}` : '');
+const backupProgress = (i, n) => { const el = $('#storageInfo'); if (el) el.textContent = `Restaurando… ${i}/${n}`; };
 $('#importBackupBtn').addEventListener('click', () => $('#importBackupFile').click());
 $('#importBackupFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    const r = await importBackupData(JSON.parse(await file.text()));
-    toast(`Backup restaurado: ${r.songs} cifras`);
+    const r = await importBackupData(JSON.parse(await file.text()), backupProgress);
+    toast('Backup restaurado: ' + backupResultText(r), r.bad ? 6000 : 3000);
   } catch (err) { toast('Erro no backup: ' + err.message, 4000); }
+  renderStorageInfo();
   e.target.value = '';
 });
 $('#plImportBtn').addEventListener('click', () => $('#plImportFile').click());
@@ -3370,35 +3911,45 @@ $('#plImportFile').addEventListener('change', async e => {
   try {
     const r = await importBackupData(JSON.parse(await file.text()));
     renderPlaylists();
-    toast(`Importado: ${r.playlists} playlist${r.playlists === 1 ? '' : 's'}, ${r.songs} cifras`);
+    toast('Importado: ' + backupResultText(r), r.bad ? 6000 : 3000);
   } catch (err) { toast('Erro ao importar: ' + err.message, 4000); }
   e.target.value = '';
 });
 
 /* atualização em lote das cifras vindas do CifraClub */
-let updateAllRunning = false, updateAllCancel = false;
+let updateAllRunning = false, updateAllCancel = false, updateAllCtl = null;
 $('#updateAllBtn').addEventListener('click', async () => {
   const btn = $('#updateAllBtn'), status = $('#updateAllStatus');
-  if (updateAllRunning) { updateAllCancel = true; return; }
+  if (updateAllRunning) { updateAllCancel = true; updateAllCtl?.abort(); return; } // aborta também o download em curso
+  const all = SONGS.filter(s => s.artistSlug && s.songSlug);
+  const edited = all.filter(s => s.edited).length; // editadas à mão: não baixa por cima
+  const hasPrincipal = new Set(all.filter(s => !s.versionSlug).map(s => s.artistSlug + '/' + s.songSlug));
   // das mais recentes para as mais antigas: as importadas depois da mudança do site
-  // (que vinham truncadas) são corrigidas primeiro — dá pra cancelar quando chegar nas antigas
-  const targets = SONGS.filter(s => s.artistSlug && s.songSlug)
+  // (que vinham truncadas) são corrigidas primeiro — dá pra cancelar quando chegar nas antigas.
+  // Com versões ligadas, a principal já baixa as outras versões: pedir cada versão de novo dobrava o trabalho
+  const targets = all.filter(s => !s.edited && !(IMPORT_VERSIONS && s.versionSlug && hasPrincipal.has(s.artistSlug + '/' + s.songSlug)))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  if (!targets.length) return toast('Nenhuma cifra do CifraClub na biblioteca');
+  if (!targets.length) return toast(edited ? `Nenhuma cifra pra atualizar (${edited} editadas mantidas)` : 'Nenhuma cifra do CifraClub na biblioteca');
   updateAllRunning = true; updateAllCancel = false;
+  const ctl = updateAllCtl = new AbortController();
   btn.textContent = 'Cancelar atualização';
-  let ok = 0, fail = 0;
+  let ok = 0;
+  const failed = [];
   for (let i = 0; i < targets.length; i++) {
     if (updateAllCancel) break;
     const s = targets[i];
     status.textContent = `${i + 1}/${targets.length}: ${s.title}`;
-    try { await importOneSong(s.artistSlug, s.songSlug, { version: s.versionSlug, versionName: s.versionName }); ok++; }
-    catch { fail++; }
+    try { await importOneSong(s.artistSlug, s.songSlug, { version: s.versionSlug, versionName: s.versionName, signal: ctl.signal }); ok++; }
+    catch (e) { if (updateAllCancel) break; failed.push(s.title); }
     await sleep(700); // gentileza com o servidor
   }
-  status.textContent = `Concluído: ${ok} atualizadas${fail ? `, ${fail} falharam` : ''}${updateAllCancel ? ' (cancelado)' : ''}`;
+  await reloadCache();
+  status.textContent = `Concluído: ${ok} atualizadas`
+    + (edited ? `, ${edited} ${plural(edited, 'editada mantida', 'editadas mantidas')}` : '')
+    + (failed.length ? `, ${failed.length} falharam: ${failed.slice(0, 8).join(', ')}${failed.length > 8 ? '…' : ''}` : '')
+    + (updateAllCancel ? ' (cancelado)' : '');
   btn.textContent = 'Atualizar cifras do CifraClub';
-  updateAllRunning = false;
+  updateAllRunning = false; updateAllCtl = null;
   rerenderLists();
 });
 /* atualização em lote só das fotos dos artistas (não baixa cifra nenhuma) */
@@ -3437,15 +3988,30 @@ $('#updateImgsBtn').addEventListener('click', async () => {
   rerenderLists();
 });
 $('#wipeBtn').addEventListener('click', async () => {
-  if (!confirm('Apagar TODAS as cifras e playlists? Esta ação não pode ser desfeita.')) return;
-  for (const it of [...SONGS, ...PLAYLISTS]) TOMBS[it.id] = Date.now();
-  await setSetting('tombstones', TOMBS);
-  await dbClear('songs'); await dbClear('playlists');
-  try { await dbClear('images'); } catch {}
+  const synced = !!(SYNC.url && SYNC.key);
+  let localOnly = false;
+  if (synced) {
+    // com sync, apagar aqui apaga nos outros aparelhos (lápides); a alternativa é limpar só este,
+    // sem lápides — o servidor fica como está e a próxima sincronização traz tudo de volta
+    if (!confirm('Apagar TODAS as cifras e playlists?\n\nA sincronização está configurada: elas serão apagadas TAMBÉM nos outros aparelhos na próxima sincronização.\n\nOK = apagar em todos os aparelhos\nCancelar = ver a opção de apagar só neste aparelho')) {
+      if (!confirm('Apagar só NESTE aparelho?\n\nA cópia do servidor e os outros aparelhos ficam como estão — a próxima sincronização traz a biblioteca de volta pra cá (desligue "Sincronizar automaticamente" antes se não quiser).')) return;
+      localOnly = true;
+    }
+  } else if (!confirm('Apagar TODAS as cifras e playlists? Esta ação não pode ser desfeita.')) return;
+  if (localOnly) {
+    await dbClearRaw('songs'); await dbClearRaw('playlists'); // sem marcar sujo, sem lápides
+    SYNC.rev = 0; SYNC.dirty = false;
+    await setSetting('sync', SYNC);
+  } else {
+    for (const it of [...SONGS, ...PLAYLISTS]) TOMBS[it.id] = now();
+    await setSetting('tombstones', TOMBS);
+    await dbClear('songs'); await dbClear('playlists');
+  }
+  try { await dbClearRaw('images'); } catch {}
   ARTIMG.clear();
   await reloadCache();
   rerenderLists();
-  toast('Tudo apagado');
+  toast(localOnly ? 'Apagado neste aparelho' : 'Tudo apagado');
 });
 async function renderStorageInfo() {
   let txt = `${SONGS.length} cifras, ${PLAYLISTS.length} playlists salvas neste aparelho.`;
@@ -3468,18 +4034,22 @@ async function renderStorageInfo() {
 /* Protocolo: Worker Cloudflare com { rev, data } por chave de sincronização.
  * A mesclagem acontece no cliente: por item, o updatedAt mais novo vence;
  * exclusões viram tombstones para não "ressuscitar" no outro aparelho. */
-let SYNC = { url: '', key: '', auto: true, rev: 0, dirty: false, lastAt: 0 };
+let SYNC = { url: '', key: '', auto: true, rev: 0, dirty: false, lastAt: 0, clockSkew: 0 };
 let TOMBS = {}; // id → quando foi excluído
-let syncBusy = false, syncTimer = null, syncApplying = false;
+let syncBusy = false, syncTimer = null;
+/* Contador de alterações locais: doSync compara o valor do início com o do fim — se mudou,
+ * alguém editou durante o envio e a biblioteca continua suja (um flag "aplicando" perdia
+ * essas edições). As gravações do próprio sync usam dbWriteRaw, que não passa por aqui. */
+let dirtyGen = 0;
 
 function markDirty(store) {
   if (store !== 'songs' && store !== 'playlists') return;
-  if (syncApplying || typeof SYNC !== 'object') return;
+  dirtyGen++;
   if (!SYNC.dirty) { SYNC.dirty = true; setSetting('sync', SYNC); }
   scheduleSync();
 }
 async function addTombstone(id) {
-  TOMBS[id] = Date.now();
+  TOMBS[id] = now();
   await setSetting('tombstones', TOMBS);
 }
 function scheduleSync() {
@@ -3513,21 +4083,29 @@ function mergeLibraries(localSongs, localPls, remote) {
   };
   return { songs: mergeArr(localSongs, r.songs), playlists: mergeArr(localPls, r.playlists), tombstones: tombs };
 }
-/* grava o resultado da mesclagem localmente (sem re-marcar como sujo) */
+/* Grava o resultado da mesclagem localmente, em duas transações (dbWriteRaw não marca sujo).
+ * Só grava o que mudou — reescrever a biblioteca inteira a cada sincronização custava
+ * milhares de transações — e nunca por cima de uma cópia local mais nova: o usuário pode ter
+ * editado enquanto o download rodava, e essa edição vai na próxima rodada (dirtyGen).
+ * Só apaga item com lápide: o que está aqui e não veio no merge pode ter acabado de ser
+ * criado, depois do instante em que a mesclagem tirou a foto da biblioteca. */
 async function applyMerged(merged) {
-  syncApplying = true;
-  try {
-    const keepS = new Set(merged.songs.map(s => s.id));
-    const keepP = new Set(merged.playlists.map(p => p.id));
-    for (const s of SONGS) if (!keepS.has(s.id)) await dbDel('songs', s.id);
-    for (const p of PLAYLISTS) if (!keepP.has(p.id)) await dbDel('playlists', p.id);
-    for (const s of merged.songs) await dbPut('songs', s);
-    for (const p of merged.playlists) await dbPut('playlists', p);
-    TOMBS = merged.tombstones;
-    await setSetting('tombstones', TOMBS);
-    await reloadCache();
-    rerenderLists();
-  } finally { syncApplying = false; }
+  const locS = new Map(SONGS.map(s => [s.id, s]));
+  const locP = new Map(PLAYLISTS.map(p => [p.id, p]));
+  const stamp = it => it.updatedAt || it.createdAt || 0;
+  const keepS = new Set(merged.songs.map(s => s.id));
+  const keepP = new Set(merged.playlists.map(p => p.id));
+  const fresh = (loc, it) => loc !== it && (!loc || stamp(loc) <= stamp(it));
+  await dbWriteRaw('songs',
+    merged.songs.filter(s => fresh(locS.get(s.id), s)),
+    SONGS.filter(s => !keepS.has(s.id) && merged.tombstones[s.id]).map(s => s.id));
+  await dbWriteRaw('playlists',
+    merged.playlists.filter(p => fresh(locP.get(p.id), p)),
+    PLAYLISTS.filter(p => !keepP.has(p.id) && merged.tombstones[p.id]).map(p => p.id));
+  TOMBS = merged.tombstones;
+  await setSetting('tombstones', TOMBS);
+  await reloadCache();
+  rerenderLists();
 }
 function setSyncStatus(txt) {
   const el = $('#syncStatus');
@@ -3536,7 +4114,19 @@ function setSyncStatus(txt) {
 function syncStatusIdle() {
   if (!SYNC.url || !SYNC.key) return 'Não configurado.';
   if (!SYNC.lastAt) return 'Nunca sincronizado.';
-  return `Última sincronização ${timeAgo(SYNC.lastAt)} (rev ${SYNC.rev})${SYNC.dirty ? ' — há alterações locais pendentes' : ''}.`;
+  const skew = SYNC.clockSkew || 0;
+  const aviso = Math.abs(skew) > 120000
+    ? ` ⚠️ O relógio deste aparelho está ${Math.round(Math.abs(skew) / 60000)} min ${skew > 0 ? 'atrasado' : 'adiantado'} — acerte a hora, senão uma edição nova aqui pode perder para uma antiga de outro aparelho.`
+    : '';
+  return `Última sincronização ${timeAgo(SYNC.lastAt)} (rev ${SYNC.rev})${SYNC.dirty ? ' — há alterações locais pendentes' : ''}.${aviso}`;
+}
+/* Relógio do servidor (X-Sync-Time): a mesclagem e as lápides comparam carimbos feitos em
+ * aparelhos diferentes, então um relógio torto aqui faz edição nova perder para edição velha. */
+function noteClockSkew(res) {
+  const t = parseInt(res.headers.get('X-Sync-Time') || '', 10);
+  if (!Number.isFinite(t)) return; // Worker antigo: segue com desvio 0
+  const skew = t - Date.now();
+  if (Math.abs(skew - (SYNC.clockSkew || 0)) > 1000) { SYNC.clockSkew = skew; setSetting('sync', SYNC); }
 }
 /* O Worker novo devolve só os dados, com a revisão em X-Sync-Rev; o formato antigo
  * vinha como { rev, data } no corpo. Aceita os dois para não depender da ordem do deploy. */
@@ -3551,29 +4141,50 @@ async function readSyncBody(res, fallbackRev) {
 const libSig = (songs, pls) => songs.length + ':' + pls.length + ':'
   + songs.reduce((a, s) => a + (s.updatedAt || 0), 0) + ':'
   + pls.reduce((a, p) => a + (p.updatedAt || 0), 0);
+const syncSignal = () => (AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined);
 async function doSync(manual) {
-  if (syncBusy) return;
+  if (syncBusy) { if (manual) toast('Já sincronizando…'); return; }
   if (!SYNC.url || !SYNC.key) { if (manual) toast('Configure a URL do Worker e a chave nos Ajustes'); return; }
   if (!navigator.onLine) { if (manual) toast('Sem internet — sincroniza quando voltar'); return; }
   syncBusy = true;
+  const gen0 = dirtyGen; // alteração local durante o envio deixa a biblioteca suja de novo
   setSyncStatus('Sincronizando…');
   const base = SYNC.url.replace(/\/+$/, '');
   const headers = { 'Authorization': 'Bearer ' + SYNC.key, 'Content-Type': 'application/json' };
   try {
-    let res = await fetch(`${base}/sync?since=${SYNC.dirty ? -1 : SYNC.rev}`, { headers });
-    let remote = null, remoteRev = SYNC.rev;
-    if (res.status === 204) { // servidor na mesma revisão e nada local pendente
-      SYNC.lastAt = Date.now();
-      await setSetting('sync', SYNC);
-      setSyncStatus(syncStatusIdle());
-      if (manual) toast('Tudo em dia');
-      return;
+    // since=rev sempre: quando só há alteração local o servidor responde 204 e nem baixamos
+    // a biblioteca (antes era since=-1 quando sujo, dezenas de MB a cada transposição)
+    let res = await fetch(`${base}/sync?since=${SYNC.rev}`, { headers, signal: syncSignal() });
+    noteClockSkew(res);
+    let remote = null, remoteRev = SYNC.rev, haveRemote = false;
+    if (res.status === 204) { // servidor na mesma revisão
+      if (!SYNC.dirty) {      // e nada pendente aqui: acabou
+        SYNC.lastAt = Date.now();
+        await setSetting('sync', SYNC);
+        setSyncStatus(syncStatusIdle());
+        if (manual) toast('Tudo em dia');
+        return;
+      }
+    } else {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      // falha aqui = blob corrompido no servidor (JSON inválido/gzip quebrado), não rede
+      try { ({ data: remote, rev: remoteRev } = await readSyncBody(res, SYNC.rev)); }
+      catch { throw new Error('CORROMPIDO'); }
+      haveRemote = true;
     }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    ({ data: remote, rev: remoteRev } = await readSyncBody(res, SYNC.rev));
+    // aparelho parado por mais tempo que o GC de lápides: o que só existe aqui pode ter sido
+    // apagado lá com a lápide já coletada — enviar de volta ressuscitaria tudo
+    if (haveRemote && SYNC.lastAt && Date.now() - SYNC.lastAt > 90 * 24 * 3600 * 1000) {
+      const rIds = new Set([...(remote?.songs || []), ...(remote?.playlists || [])].map(it => it.id));
+      const soAqui = [...SONGS, ...PLAYLISTS].filter(it => !rIds.has(it.id)).length;
+      if (soAqui && !confirm(`Faz mais de 90 dias que este aparelho não sincroniza.\n\n${soAqui} item(ns) existem só aqui e podem ter sido apagados nos outros aparelhos. Continuar vai enviá-los de volta para todos.\n\nContinuar?`)) {
+        setSyncStatus('Sincronização cancelada — as alterações locais continuam pendentes.');
+        return;
+      }
+    }
 
     let merged = mergeLibraries(SONGS, PLAYLISTS, remote);
-    await applyMerged(merged);
+    if (haveRemote) await applyMerged(merged);
 
     const needPut = SYNC.dirty || !remote
       || libSig(merged.songs, merged.playlists) !== libSig(remote.songs || [], remote.playlists || []);
@@ -3586,7 +4197,9 @@ async function doSync(manual) {
           method: 'PUT',
           headers: { ...headers, 'X-Base-Rev': String(remoteRev) },
           body: JSON.stringify(merged),
+          signal: syncSignal(),
         });
+        noteClockSkew(res);
         if (res.status === 409) { // outro aparelho gravou no meio: mescla de novo e tenta uma vez
           const cur = await readSyncBody(res, remoteRev);
           remoteRev = cur.rev;
@@ -3601,13 +4214,23 @@ async function doSync(manual) {
       }
     }
     SYNC.rev = remoteRev;
-    SYNC.dirty = !pushed; // dois 409 seguidos: mantém pendente para a próxima rodada
+    // dois 409 seguidos, ou edição durante o envio: continua pendente para a próxima rodada
+    SYNC.dirty = !pushed || dirtyGen !== gen0;
     SYNC.lastAt = Date.now();
     await setSetting('sync', SYNC);
     setSyncStatus(syncStatusIdle());
+    $('#syncForce').style.display = 'none';
+    if (SYNC.dirty) scheduleSync();
     if (manual) toast('Sincronizado');
   } catch (e) {
     let msg = e.message;
+    if (msg === 'CORROMPIDO') {
+      setSyncStatus('A cópia do servidor não pôde ser lida (parece corrompida). Use o botão abaixo para substituí-la pela biblioteca deste aparelho.');
+      $('#syncForce').style.display = '';
+      if (manual) toast('Cópia do servidor ilegível — veja a opção nos Ajustes', 5000);
+      return;
+    }
+    if (/abort|timeout/i.test(msg)) msg = 'tempo esgotado — a rede não respondeu em 90s';
     if (/HTTP 404/.test(msg)) msg = 'HTTP 404 — a URL do Worker parece errada (não é a URL do app!). Confira nos Ajustes ou toque em "Usar padrão".';
     if (/HTTP 401/.test(msg)) msg = 'HTTP 401 — a chave de sincronização está vazia ou curta demais.';
     if (/HTTP 413/.test(msg)) msg = 'HTTP 413 — sua biblioteca passou do limite de sincronização mesmo comprimida. Veja o tamanho em Ajustes → Armazenamento.';
@@ -3658,6 +4281,54 @@ $('#syncSave').addEventListener('click', async () => {
   toast('Configuração de sincronização salva');
 });
 $('#syncNow').addEventListener('click', () => doSync(true));
+$('#syncKeyShow').addEventListener('click', () => {
+  const el = $('#syncKey'), mostrar = el.type === 'password';
+  el.type = mostrar ? 'text' : 'password';
+  $('#syncKeyShow').textContent = mostrar ? 'Ocultar' : 'Mostrar';
+});
+/* Recuperação: a cópia do servidor ficou ilegível (duas gravações simultâneas podiam
+ * intercalar os pedaços). Reenvia a biblioteca deste aparelho sem conferir a revisão. */
+$('#syncForce').addEventListener('click', async () => {
+  if (!confirm('Substituir a cópia do servidor pela biblioteca deste aparelho?\n\nO que existir só nos outros aparelhos e ainda não tiver chegado aqui será perdido.')) return;
+  const base = SYNC.url.replace(/\/+$/, '');
+  setSyncStatus('Enviando a biblioteca deste aparelho…');
+  try {
+    const res = await fetch(`${base}/sync`, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + SYNC.key, 'Content-Type': 'application/json', 'X-Base-Rev': 'force' },
+      body: JSON.stringify(mergeLibraries(SONGS, PLAYLISTS, null)),
+      signal: syncSignal(),
+    });
+    noteClockSkew(res);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    ({ rev: SYNC.rev } = await res.json());
+    SYNC.dirty = false; SYNC.lastAt = Date.now();
+    await setSetting('sync', SYNC);
+    $('#syncForce').style.display = 'none';
+    setSyncStatus(syncStatusIdle());
+    toast('Cópia do servidor substituída');
+  } catch (e) {
+    setSyncStatus('Falha ao substituir: ' + e.message);
+    toast('Falha ao substituir: ' + e.message, 4000);
+  }
+});
+/* apaga a biblioteca do servidor (a chave antiga fica ocupando o KV para sempre, senão) */
+$('#syncWipeServer').addEventListener('click', async () => {
+  if (!SYNC.url || !SYNC.key) return toast('Configure a URL e a chave primeiro');
+  if (!confirm('Apagar a biblioteca do SERVIDOR?\n\nAs cifras deste aparelho continuam aqui; os outros aparelhos param de receber atualizações até sincronizarem de novo (o que vai reenviar a biblioteca deles).')) return;
+  try {
+    const res = await fetch(SYNC.url.replace(/\/+$/, '') + '/sync', {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + SYNC.key },
+      signal: syncSignal(),
+    });
+    if (!res.ok && res.status !== 204) throw new Error('HTTP ' + res.status);
+    SYNC.rev = 0; SYNC.dirty = true;
+    await setSetting('sync', SYNC);
+    setSyncStatus('Biblioteca apagada do servidor. A próxima sincronização envia a deste aparelho.');
+    toast('Apagado do servidor');
+  } catch (e) { toast('Falha ao apagar: ' + e.message, 4000); }
+});
 window.addEventListener('online', () => scheduleSync());
 
 /* ------------------------- online/offline ------------------------- */
@@ -3670,48 +4341,127 @@ function updateNet() {
 window.addEventListener('online', updateNet);
 window.addEventListener('offline', updateNet);
 
+/* ------------------------- modais: Escape, fundo e apoio de a11y ------------------------- */
+
+/* Toque no fundo escurecido fecha a folha. Só o fundo: um toque dentro da folha
+ * tem e.target dentro do .modal e não fecha nada. */
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t instanceof Element && t.classList.contains('modal-bg') && t.classList.contains('open')) {
+    t.classList.remove('open');
+  }
+});
+
+/* Escape fecha a folha aberta. Em captura, e com stopPropagation, porque o
+ * visualizador também trata Escape (para fechar a cifra): com uma folha por
+ * cima dele, Escape tem de fechar só a folha. Sem folha aberta não fazemos
+ * nada e o Escape do visualizador segue valendo. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const abertos = $$('.modal-bg.open');
+  if (!abertos.length) return;
+  abertos[abertos.length - 1].classList.remove('open');
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+/* Tom atual no cabeçalho do visualizador: espelha o valor da folha de ajustes,
+ * para o músico ver o tom sem abrir a engrenagem no meio da música. */
+(function tomNoCabecalho() {
+  const origem = $('#vKey'), destino = $('#vKeyHead');
+  if (!origem || !destino) return;
+  const sync = () => {
+    const txt = origem.textContent.trim();
+    destino.textContent = (!txt || txt === '—') ? '' : txt;
+  };
+  new MutationObserver(sync).observe(origem, { childList: true, characterData: true, subtree: true });
+  sync();
+})();
+
+/* aria-current na aba ativa: showView só troca a classe .active. */
+(function abaAtual() {
+  const bar = $('#tabbar'); if (!bar) return;
+  const sync = () => $$('#tabbar button').forEach(b =>
+    b.classList.contains('active') ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  new MutationObserver(sync).observe(bar, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  sync();
+})();
+
+/* theme-color: o <head> traz uma meta por esquema de cor, que acerta o primeiro
+ * paint e o caso sem JS. Com o JS no ar quem manda é o tema escolhido (que pode
+ * contrariar o do sistema), então sobra uma meta só — sem media — mantida por
+ * applyTheme() na cor da superfície ativa. */
+(function metaDeCorUnica() {
+  const metas = $$('meta[name="theme-color"]');
+  if (metas.length < 2) return;
+  metas.slice(1).forEach(m => m.remove());
+  metas[0].removeAttribute('media');
+  const cor = getComputedStyle(document.body).getPropertyValue('--surface').trim();
+  if (cor) metas[0].content = cor;
+})();
+
 /* ------------------------- init ------------------------- */
+/* Rejeição sem catch (gravação que falhou, rede que caiu) sumia no console e o app parecia
+ * ter salvado. AbortError é esperado (cancelamento) e não vira aviso. */
+window.addEventListener('unhandledrejection', e => {
+  const m = e.reason?.message || String(e.reason || '');
+  if (!m || /abort/i.test(m)) return;
+  toast('Erro: ' + m, 4000);
+});
 (async function init() {
-  await openDB();
-  await reloadCache();
-  await loadArtistImages();
-  fontSize = await getSetting('fontSize', 14);
-  scrollSpeed = await getSetting('scrollSpeed', 100);
-  themePref = await getSetting('theme', 'auto');
-  RECENTS = await getSetting('recentSearches', []);
-  SYNC = Object.assign(SYNC, await getSetting('sync', {}));
-  TOMBS = await getSetting('tombstones', {});
-  plsView = await getSetting('plsView', 'list');
-  plsSort = await getSetting('plsSort', 'manual');
-  VERPREF = await getSetting('versionPref', {});
-  IMPORT_VERSIONS = await getSetting('importVersions', true);
-  $('#importVersionsChk').checked = IMPORT_VERSIONS;
-  applyTheme();
-  renderThemeChips();
-  await loadProxies();
-  updateNet();
-  showView('home');
+  try {
+    await openDB();
+    // tema e preferências antes da biblioteca: esperar o reloadCache deixava a tela no tema
+    // errado por segundos com biblioteca grande
+    fontSize = await getSetting('fontSize', 14);
+    scrollSpeed = await getSetting('scrollSpeed', 100);
+    themePref = await getSetting('theme', 'auto');
+    applyTheme();
+    renderThemeChips();
+    RECENTS = await getSetting('recentSearches', []);
+    SYNC = Object.assign(SYNC, await getSetting('sync', {}));
+    TOMBS = await getSetting('tombstones', {});
+    plsView = await getSetting('plsView', 'list');
+    plsSort = await getSetting('plsSort', 'manual');
+    VERPREF = await getSetting('versionPref', {});
+    IMPORT_VERSIONS = await getSetting('importVersions', true);
+    $('#importVersionsChk').checked = IMPORT_VERSIONS;
+    await reloadCache();
+    await loadArtistImages();
+    await loadProxies();
+    updateNet();
+    showView('home');
+  } catch (e) {
+    // sem isto, falhar ao abrir o banco deixava a tela em branco, sem explicação
+    document.body.innerHTML = `<div style="padding:40px;max-width:40em;margin:0 auto;font:16px/1.6 system-ui,sans-serif">
+      <h1 style="font-size:20px">Não foi possível abrir o app</h1>
+      <p>${escHtml(e.message || e)}</p>
+      <p>Feche as outras abas do app e recarregue. Se continuar, o armazenamento do navegador pode estar cheio ou bloqueado para este site.</p>
+      <p><button onclick="location.reload()" style="padding:10px 18px;font:inherit">Recarregar</button></p></div>`;
+    return;
+  }
   if (SYNC.auto && SYNC.url && SYNC.key) setTimeout(() => doSync(false), 2500);
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     // Sem isto o app ficava preso na versão em cache até fechar e reabrir duas vezes —
     // e uma versão antiga do app com o Worker novo dá erro na sincronização.
     const hadController = !!navigator.serviceWorker.controller;
-    let reloadArmed = false;
+    let reloadArmed = false, updateRetry = null;
+    // recarregar no meio de uma importação ou de uma sincronização mataria o trabalho em curso
+    const ocupado = () => importJobs.size > 0 || updateAllRunning || syncBusy
+      || $('#viewer').classList.contains('open');
     const applyUpdate = () => {
       if (!reloadArmed) return;
+      if (ocupado()) { clearTimeout(updateRetry); updateRetry = setTimeout(applyUpdate, 5000); return; }
       reloadArmed = false;
       location.reload();
     };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!hadController) return; // primeira instalação: já está na versão atual
       reloadArmed = true;
-      if ($('#viewer').classList.contains('open')) { // tocando: espera fechar a cifra
-        toast('Nova versão baixada — atualiza ao sair desta cifra', 5000);
-      } else {
-        toast('Atualizando para a versão nova…', 2000);
-        setTimeout(applyUpdate, 700);
-      }
+      const esperar = ocupado();
+      toast(esperar ? 'Nova versão baixada — atualiza quando terminar' : 'Atualizando para a versão nova…', esperar ? 5000 : 2000);
+      setTimeout(applyUpdate, esperar ? 5000 : 700);
     });
     $('#vBack').addEventListener('click', () => setTimeout(applyUpdate, 300));
     navigator.serviceWorker.register('./sw.js').then(reg => {

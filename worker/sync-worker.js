@@ -1,13 +1,18 @@
 /* Worker do app Cifras — sincronização entre aparelhos + proxy CORS do CifraClub.
  *
  * Rotas:
- *   GET  /sync?since=<rev>  — devolve os dados (204 se o cliente já tem a revisão)
- *   PUT  /sync              — cabeçalho X-Base-Rev + corpo com os dados; grava se a revisão
- *                             bater, senão 409 com o estado atual
- *   GET  /proxy?url=<url>   — proxy para páginas do cifraclub.com.br
+ *   GET    /sync?since=<rev>  — devolve os dados (204 se o cliente já tem a revisão)
+ *   PUT    /sync              — cabeçalho X-Base-Rev + corpo com os dados; grava se a revisão
+ *                               bater, senão 409 com o estado atual. "X-Base-Rev: force" grava
+ *                               sem conferir a base (recuperação de um blob corrompido no KV)
+ *   DELETE /sync              — apaga tudo da chave (manifesto e todos os pedaços); 204
+ *   GET    /proxy?url=<url>   — proxy para páginas do cifraclub.com.br, só pras origens do app
  *
  * Identidade sem conta: a chave de sincronização vai em "Authorization: Bearer <chave>";
  * a entrada no KV é indexada por sha256(chave), então a chave nunca é armazenada.
+ *
+ * Toda resposta de /sync leva X-Sync-Time (relógio do servidor, em ms): o cliente usa pra
+ * corrigir o desvio do relógio local, do qual dependem o merge e os tombstones.
  *
  * O Worker NUNCA interpreta o JSON da biblioteca: ele passa o corpo direto por um
  * gzip em streaming e grava em pedaços no KV. Isso é essencial — dar JSON.parse numa
@@ -17,26 +22,34 @@
  * valor do KV.
  *
  * Formato no KV (v2):
- *   <chave>            valor vazio + metadata { v:2, rev, updatedAt, chunks, gen }
+ *   <chave>            valor vazio + metadata { v:2, rev, updatedAt, chunks, gen, prevGen, prevChunks }
  *   <chave>:<gen>:<i>  pedaços do blob gzip (concatenados = o gzip original)
- * A geração (gen) muda a cada gravação, então o manifesto só passa a apontar para os
- * pedaços novos quando todos já estão no lugar; os antigos são apagados depois.
+ * A geração (gen) é um UUID novo a cada gravação. Antes era a própria rev: dois PUTs
+ * simultâneos com a mesma base gravavam nos mesmos nomes de pedaço e os bytes saíam
+ * intercalados (gzip inválido pra sempre, em todos os aparelhos). O manifesto só passa a
+ * apontar para os pedaços novos quando todos já estão no lugar. A geração anterior fica
+ * anotada (prevGen) e só é apagada no PUT seguinte: o KV é eventualmente consistente, e
+ * apagar na hora deixava um GET em outro aparelho — que ainda via o manifesto antigo —
+ * sem os pedaços (resposta truncada). Registros antigos (gen = rev) e o formato legado
+ * (documento inteiro num valor só) continuam legíveis.
  */
 
 const KEY_MIN_LEN = 16;
 const CHUNK_BYTES = 10 * 1024 * 1024; // por pedaço, sob o limite de 25 MB por valor do KV
 const MAX_CHUNKS = 40;                // teto de segurança (~400 MB comprimidos)
+const PROXY_OK = /^https:\/\/(www\.)?cifraclub\.com\.br\//;
+
+// Pages do app, desenvolvimento local e file:// (leitores de HTML mandam Origin: null)
+const okOrigin = origin => /^https:\/\/gustavo-omiq\.github\.io$/.test(origin)
+  || /^http:\/\/localhost(:\d+)?$/.test(origin)
+  || origin === 'null';
 
 function corsHeaders(origin) {
-  // Pages do app, desenvolvimento local e file:// (leitores de HTML mandam Origin: null)
-  const okOrigin = /^https:\/\/gustavo-omiq\.github\.io$/.test(origin)
-    || /^http:\/\/localhost(:\d+)?$/.test(origin)
-    || origin === 'null';
   return {
-    'Access-Control-Allow-Origin': okOrigin ? origin : 'https://gustavo-omiq.github.io',
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Origin': okOrigin(origin) ? origin : 'https://gustavo-omiq.github.io',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Base-Rev',
-    'Access-Control-Expose-Headers': 'X-Sync-Rev', // sem isso o navegador não deixa ler a revisão
+    'Access-Control-Expose-Headers': 'X-Sync-Rev, X-Sync-Time', // sem isso o navegador não deixa ler
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -44,6 +57,14 @@ function corsHeaders(origin) {
 const json = (obj, status, cors) => new Response(JSON.stringify(obj), {
   status, headers: { 'Content-Type': 'application/json', ...cors },
 });
+/* mensagem legível pra exceção do KV: o limite diário de gravação do plano free (1000 puts)
+ * chega como erro genérico e o usuário só via "falha ao gravar" */
+const errMsg = e => {
+  const m = (e && e.message) || String(e);
+  if (/limit|quota|429|too many/i.test(m))
+    return 'limite diário de gravação do KV atingido — tente de novo amanhã (' + m + ')';
+  return m;
+};
 
 async function kvKeyFor(req) {
   const auth = req.headers.get('Authorization') || '';
@@ -81,12 +102,23 @@ async function legacyRev(buf) {
 async function readMeta(kvKey, env) {
   const { value, metadata } = await env.SYNC_KV.getWithMetadata(kvKey, 'arrayBuffer');
   if (metadata && metadata.v === 2)
-    return { v: 2, rev: metadata.rev || 0, gen: metadata.gen, chunks: metadata.chunks || 0 };
+    return {
+      v: 2, rev: metadata.rev || 0, gen: metadata.gen, chunks: metadata.chunks || 0,
+      prevGen: metadata.prevGen, prevChunks: metadata.prevChunks || 0,
+    };
   if (!value || value.byteLength === 0) return null;
   return { v: 1, rev: await legacyRev(value), bytes: value, gz: looksGzipped(value) };
 }
 
-/* grava o stream comprimido em pedaços de CHUNK_BYTES; devolve quantos pedaços saíram */
+async function deleteGen(kvKey, gen, chunks, env) {
+  if (gen === undefined || gen === null) return;
+  for (let i = 0; i < chunks; i++) {
+    try { await env.SYNC_KV.delete(`${kvKey}:${gen}:${i}`); } catch {}
+  }
+}
+/* grava o stream comprimido em pedaços de CHUNK_BYTES; devolve quantos pedaços saíram.
+ * Se falhar no meio (TOO_BIG, cota do KV), apaga o que já gravou dessa geração pra não
+ * deixar pedaços órfãos ocupando o KV. */
 async function writeChunks(kvKey, gen, stream, env) {
   const reader = stream.getReader();
   const buf = new Uint8Array(CHUNK_BYTES);
@@ -95,27 +127,28 @@ async function writeChunks(kvKey, gen, stream, env) {
     await env.SYNC_KV.put(`${kvKey}:${gen}:${idx}`, buf.slice(0, used).buffer);
     idx++; used = 0;
   };
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    let off = 0;
-    while (off < value.byteLength) {
-      const n = Math.min(CHUNK_BYTES - used, value.byteLength - off);
-      buf.set(value.subarray(off, off + n), used);
-      used += n; off += n;
-      if (used === CHUNK_BYTES) {
-        if (idx + 1 >= MAX_CHUNKS) { reader.cancel().catch(() => {}); throw new Error('TOO_BIG'); }
-        await flush();
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      let off = 0;
+      while (off < value.byteLength) {
+        const n = Math.min(CHUNK_BYTES - used, value.byteLength - off);
+        buf.set(value.subarray(off, off + n), used);
+        used += n; off += n;
+        if (used === CHUNK_BYTES) {
+          if (idx + 1 >= MAX_CHUNKS) throw new Error('TOO_BIG');
+          await flush();
+        }
       }
     }
+    if (used > 0 || idx === 0) await flush();
+  } catch (e) {
+    reader.cancel().catch(() => {});
+    await deleteGen(kvKey, gen, idx + 1, env); // idx+1 cobre um put interrompido no meio
+    throw e;
   }
-  if (used > 0 || idx === 0) await flush();
   return idx;
-}
-async function deleteGen(kvKey, gen, chunks, env) {
-  for (let i = 0; i < chunks; i++) {
-    try { await env.SYNC_KV.delete(`${kvKey}:${gen}:${i}`); } catch {}
-  }
 }
 /* devolve os pedaços em ordem, sem juntar tudo na memória */
 function chunkStream(kvKey, gen, chunks, env) {
@@ -170,51 +203,95 @@ async function handleSync(req, env, url, cors) {
     const hdr = req.headers.get('X-Base-Rev');
     if (hdr === null)
       return json({ error: 'versão antiga do app — atualize (feche e reabra duas vezes)' }, 400, cors);
-    const baseRev = parseInt(hdr, 10);
-    if (!Number.isFinite(baseRev)) return json({ error: 'X-Base-Rev inválido' }, 400, cors);
+    // "force": o cliente reenvia a biblioteca inteira por cima do que houver (blob corrompido)
+    const force = hdr === 'force';
+    const baseRev = force ? NaN : parseInt(hdr, 10);
+    if (!force && !Number.isFinite(baseRev)) return json({ error: 'X-Base-Rev inválido' }, 400, cors);
     if (!req.body) return json({ error: 'corpo vazio' }, 400, cors);
 
     const meta = await readMeta(kvKey, env);
     const curRev = meta ? meta.rev : 0;
-    if (baseRev !== curRev) return stateResponse(meta, 409, cors, kvKey, env);
+    if (!force && baseRev !== curRev) return stateResponse(meta, 409, cors, kvKey, env);
 
     const rev = curRev + 1;
+    const gen = crypto.randomUUID(); // nunca a rev: dois PUTs concorrentes não podem dividir nomes
     let chunks;
     try {
-      chunks = await writeChunks(kvKey, rev, req.body.pipeThrough(new CompressionStream('gzip')), env);
+      chunks = await writeChunks(kvKey, gen, req.body.pipeThrough(new CompressionStream('gzip')), env);
     } catch (e) {
       if (e.message === 'TOO_BIG')
         return json({ error: 'biblioteca grande demais para sincronizar (mesmo comprimida)' }, 413, cors);
-      return json({ error: 'falha ao gravar: ' + e.message }, 500, cors);
+      return json({ error: 'falha ao gravar: ' + errMsg(e) }, 500, cors);
     }
-    await env.SYNC_KV.put(kvKey, '', { metadata: { v: 2, rev, updatedAt: Date.now(), chunks, gen: rev } });
-    if (meta && meta.v === 2) await deleteGen(kvKey, meta.gen, meta.chunks, env);
+    const prev = meta && meta.v === 2 ? { prevGen: meta.gen, prevChunks: meta.chunks } : {};
+    await env.SYNC_KV.put(kvKey, '', {
+      metadata: { v: 2, rev, updatedAt: Date.now(), chunks, gen, ...prev },
+    });
+    // preguiçoso: apaga a geração anterior à anterior; a anterior pode estar sendo lida agora
+    if (meta && meta.v === 2) await deleteGen(kvKey, meta.prevGen, meta.prevChunks, env);
     return json({ rev }, 200, cors);
+  }
+
+  if (req.method === 'DELETE') {
+    const meta = await readMeta(kvKey, env);
+    // manifesto primeiro: um GET concorrente vê "vazio" em vez de pedaço faltando
+    await env.SYNC_KV.delete(kvKey);
+    if (meta && meta.v === 2) {
+      await deleteGen(kvKey, meta.gen, meta.chunks, env);
+      await deleteGen(kvKey, meta.prevGen, meta.prevChunks, env);
+    }
+    return new Response(null, { status: 204, headers: cors });
   }
 
   return json({ error: 'método não suportado' }, 405, cors);
 }
 
 async function handleProxy(req, url, cors) {
+  // Só as origens do app (sem Origin = curl/script → 403). O proxy é somente-leitura, mas
+  // roda no mesmo Worker do sync e gasta a mesma cota de requisições.
+  const origin = req.headers.get('Origin');
+  if (origin === null || !okOrigin(origin))
+    return new Response('origem não permitida', { status: 403, headers: cors });
   const target = url.searchParams.get('url');
-  if (!target || !/^https:\/\/(www\.)?cifraclub\.com\.br\//.test(target))
+  if (!target || !PROXY_OK.test(target))
     return new Response('URL inválida', { status: 400, headers: cors });
-  const r = await fetch(target, {
+  const opts = {
     headers: { 'User-Agent': req.headers.get('User-Agent') || 'Mozilla/5.0' },
-  });
+    redirect: 'manual', // só seguimos redirecionamento que continue dentro do CifraClub
+    cf: { cacheTtl: 3600, cacheEverything: true }, // a mesma cifra pedida de novo não bate no site
+  };
+  let cur = target;
+  let r = await fetch(cur, opts);
+  for (let hop = 0; r.status >= 300 && r.status < 400; hop++) {
+    let next = '';
+    try { next = new URL(r.headers.get('Location') || '', cur).href; } catch {}
+    if (hop >= 3 || !PROXY_OK.test(next) || next === cur)
+      return new Response('redirecionamento para fora do CifraClub', { status: 502, headers: cors });
+    cur = next;
+    r = await fetch(cur, opts);
+  }
   const h = new Headers(cors);
   h.set('Content-Type', r.headers.get('Content-Type') || 'text/html');
-  h.set('Access-Control-Allow-Origin', '*'); // proxy é público-somente-leitura
   return new Response(r.body, { status: r.status, headers: h });
 }
 
+/* relógio do servidor em toda resposta de /sync (inclusive erros) */
+const withSyncTime = res => { res.headers.set('X-Sync-Time', String(Date.now())); return res; };
+
 export default {
   async fetch(req, env) {
-    const url = new URL(req.url);
     const cors = corsHeaders(req.headers.get('Origin') || '');
-    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (url.pathname === '/sync') return handleSync(req, env, url, cors);
-    if (url.pathname === '/proxy') return handleProxy(req, url, cors);
-    return json({ app: 'cifras-sync', rotas: ['/sync', '/proxy'] }, 200, cors);
+    const url = new URL(req.url);
+    try {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+      if (url.pathname === '/sync') return withSyncTime(await handleSync(req, env, url, cors));
+      if (url.pathname === '/proxy') return await handleProxy(req, url, cors);
+      return json({ app: 'cifras-sync', rotas: ['/sync', '/proxy'] }, 200, cors);
+    } catch (e) {
+      // exceção solta virava erro 1101 da Cloudflare, sem CORS — o navegador só mostrava
+      // "failed to fetch" e o app não tinha como explicar o que houve
+      const res = json({ error: errMsg(e) }, 500, cors);
+      return url.pathname === '/sync' ? withSyncTime(res) : res;
+    }
   },
 };
